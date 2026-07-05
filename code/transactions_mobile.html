@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/><meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Transaksi | ProsperWealth Mobile</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
+<script>
+tailwind.config={darkMode:"class",theme:{extend:{colors:{"on-primary":"#ffffff","inverse-primary":"#b2c5ff","secondary":"#006e2f","on-surface-variant":"#434654","surface-container":"#e6eeff","outline-variant":"#c3c6d6","primary":"#003d9b","surface":"#f8f9ff","background":"#f8f9ff","on-surface":"#0d1c2e","outline":"#737685","tertiary":"#732f00","error":"#ba1a1a","primary-container":"#0052cc","secondary-container":"#6bff8f","primary-fixed":"#dae2ff","tertiary-container":"#984100","error-container":"#ffdad6","tertiary-fixed":"#ffdbca","surface-container-low":"#eff4ff","surface-dim":"#ccdbf3","surface-container-high":"#dce9ff"},borderRadius:{DEFAULT:"0.25rem",lg:"0.5rem",xl:"0.75rem"}}}}
+</script>
+<style>body{font-family:'Inter',sans-serif;background:#f8f9ff;margin:0}.material-symbols-outlined{font-variation-settings:'FILL'0,'wght'400,'GRAD'0,'opsz'24;vertical-align:middle}</style>
+</head><body class="text-on-surface">
+<header class="flex justify-between items-center px-gutter-mobile h-14 sticky top-0 z-50 bg-surface/80 backdrop-blur-md border-b border-outline-variant">
+<span class="font-headline-md font-bold text-primary text-lg">Transaksi</span>
+<button class="bg-primary text-on-primary px-4 py-1.5 rounded-lg font-label-sm text-sm">+ Baru</button>
+</header>
+<main class="px-margin-mobile py-4 pb-24">
+<div class="flex gap-2 mb-4 overflow-x-auto pb-1">
+<button class="px-4 py-1.5 bg-primary text-on-primary rounded-full font-label-sm text-sm">Hari Ini</button>
+<button class="px-4 py-1.5 bg-surface-container-low border border-outline-variant rounded-full font-label-sm text-sm text-outline">Minggu Ini</button>
+<button class="px-4 py-1.5 bg-surface-container-low border border-outline-variant rounded-full font-label-sm text-sm text-outline">Bulan Ini</button>
+</div>
+<div class="flex flex-col gap-3">
+<div class="bg-white rounded-xl border border-outline-variant shadow-sm p-4"><div class="flex items-center justify-between"><div class="flex items-center gap-3"><div class="w-10 h-10 rounded-full bg-surface-container flex items-center justify-center"><span class="material-symbols-outlined text-primary text-sm">shopping_cart</span></div><div><p class="font-body-sm font-medium text-on-surface">Whole Foods Market</p><span class="font-label-sm text-outline">Kebutuhan · 24 Okt</span></div></div><span class="font-body-sm font-bold text-on-surface">-Rp 1.867.500</span></div></div>
+<div class="bg-white rounded-xl border border-outline-variant shadow-sm p-4"><div class="flex items-center justify-between"><div class="flex items-center gap-3"><div class="w-10 h-10 rounded-full bg-surface-container flex items-center justify-center"><span class="material-symbols-outlined text-secondary text-sm">work</span></div><div><p class="font-body-sm font-medium text-on-surface">Gaji Bulanan</p><span class="font-label-sm text-outline">Pendapatan · 23 Okt</span></div></div><span class="font-body-sm font-bold text-secondary">+Rp 78.000.000</span></div></div>
+<div class="bg-white rounded-xl border border-outline-variant shadow-sm p-4"><div class="flex items-center justify-between"><div class="flex items-center gap-3"><div class="w-10 h-10 rounded-full bg-surface-container flex items-center justify-center"><span class="material-symbols-outlined text-tertiary text-sm">movie</span></div><div><p class="font-body-sm font-medium text-on-surface">Langganan Netflix</p><span class="font-label-sm text-outline">Hiburan · 22 Okt</span></div></div><span class="font-body-sm font-bold text-on-surface">-Rp 239.850</span></div></div>
+<div class="bg-white rounded-xl border border-outline-variant shadow-sm p-4"><div class="flex items-center justify-between"><div class="flex items-center gap-3"><div class="w-10 h-10 rounded-full bg-surface-container flex items-center justify-center"><span class="material-symbols-outlined text-primary text-sm">directions_car</span></div><div><p class="font-body-sm font-medium text-on-surface">SPBU Shell</p><span class="font-label-sm text-outline">Transportasi · 21 Okt</span></div></div><span class="font-body-sm font-bold text-on-surface">-Rp 975.000</span></div></div>
+</div>
+</main>
+<nav class="fixed bottom-0 left-0 w-full z-50 flex justify-around items-center px-margin-mobile py-2 bg-surface/95 backdrop-blur-sm shadow-lg border-t border-outline-variant">
+<a class="flex flex-col items-center justify-center text-on-surface-variant" href="#"><span class="material-symbols-outlined">dashboard</span><span class="font-label-sm text-label-sm">Beranda</span></a>
+<a class="flex flex-col items-center justify-center bg-primary-container text-on-primary-container rounded-xl px-3 py-1" href="#"><span class="material-symbols-outlined">receipt_long</span><span class="font-label-sm text-label-sm">Trans</span></a>
+<a class="flex flex-col items-center justify-center text-on-surface-variant" href="#"><span class="material-symbols-outlined">account_balance_wallet</span><span class="font-label-sm text-label-sm">Budget</span></a>
+<a class="flex flex-col items-center justify-center text-on-surface-variant" href="#"><span class="material-symbols-outlined">savings</span><span class="font-label-sm text-label-sm">Simpan</span></a>
+<a class="flex flex-col items-center justify-center text-on-surface-variant" href="#"><span class="material-symbols-outlined">credit_score</span><span class="font-label-sm text-label-sm">Hutang</span></a>
+</nav>
+</body></html>

@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/><meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Tabungan | ProsperWealth Mobile</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
+<style>body{font-family:'Inter',sans-serif;background:#f8f9ff;margin:0}.material-symbols-outlined{font-variation-settings:'FILL'0,'wght'400,'GRAD'0,'opsz'24}</style>
+<script>
+tailwind.config={darkMode:"class",theme:{extend:{colors:{"on-primary":"#ffffff","secondary":"#006e2f","on-surface-variant":"#434654","outline-variant":"#c3c6d6","primary":"#003d9b","surface":"#f8f9ff","background":"#f8f9ff","on-surface":"#0d1c2e","tertiary":"#732f00","primary-container":"#0052cc","surface-container-low":"#eff4ff","tertiary-container":"#984100","secondary-container":"#6bff8f","primary-fixed":"#dae2ff","tertiary-fixed":"#ffdbca"},borderRadius:{DEFAULT:"0.25rem",lg:"0.5rem",xl:"0.75rem"}}}}
+</script>
+</head><body class="text-on-surface">
+<header class="flex justify-between items-center px-gutter-mobile h-14 sticky top-0 z-50 bg-surface/80 backdrop-blur-md border-b border-outline-variant">
+<span class="font-headline-md font-bold text-primary text-lg">Tabungan</span>
+<button class="bg-primary text-on-primary px-4 py-1.5 rounded-lg font-label-sm text-sm">+ Target</button>
+</header>
+<main class="px-margin-mobile py-4 pb-24 flex flex-col gap-3">
+<div class="bg-white rounded-xl border border-outline-variant shadow-sm p-4">
+<div class="flex justify-between items-start mb-3"><div class="flex items-center gap-2"><span class="material-symbols-outlined text-primary">savings</span><h3 class="font-body-md font-semibold">Dana Darurat</h3></div><span class="font-label-sm text-primary">45%</span></div>
+<div class="w-full bg-surface-container h-3 rounded-full overflow-hidden mb-2"><div class="bg-primary h-full rounded-full" style="width:45%"></div></div>
+<p class="font-label-sm text-outline">Rp 45.000.000 / Rp 100.000.000</p>
+</div>
+<div class="bg-white rounded-xl border border-outline-variant shadow-sm p-4">
+<div class="flex justify-between items-start mb-3"><div class="flex items-center gap-2"><span class="material-symbols-outlined text-tertiary">home</span><h3 class="font-body-md font-semibold">DP Rumah</h3></div><span class="font-label-sm text-tertiary">72%</span></div>
+<div class="w-full bg-surface-container h-3 rounded-full overflow-hidden mb-2"><div class="bg-tertiary-container h-full rounded-full" style="width:72%"></div></div>
+<p class="font-label-sm text-outline">Rp 180.000.000 / Rp 250.000.000</p>
+</div>
+<div class="bg-white rounded-xl border border-outline-variant shadow-sm p-4">
+<div class="flex justify-between items-start mb-3"><div class="flex items-center gap-2"><span class="material-symbols-outlined text-secondary">flight</span><h3 class="font-body-md font-semibold">Liburan Akhir Tahun</h3></div><span class="font-label-sm text-secondary">100%</span></div>
+<div class="w-full bg-surface-container h-3 rounded-full overflow-hidden mb-2"><div class="bg-secondary h-full rounded-full" style="width:100%"></div></div>
+<p class="font-label-sm text-outline">Rp 15.000.000 / Rp 15.000.000</p>
+</div>
+</main>
+<nav class="fixed bottom-0 left-0 w-full z-50 flex justify-around items-center px-margin-mobile py-2 bg-surface/95 backdrop-blur-sm shadow-lg border-t border-outline-variant">
+<a class="flex flex-col items-center justify-center text-on-surface-variant" href="#"><span class="material-symbols-outlined">dashboard</span><span class="font-label-sm text-label-sm">Beranda</span></a>
+<a class="flex flex-col items-center justify-center text-on-surface-variant" href="#"><span class="material-symbols-outlined">receipt_long</span><span class="font-label-sm text-label-sm">Trans</span></a>
+<a class="flex flex-col items-center justify-center text-on-surface-variant" href="#"><span class="material-symbols-outlined">account_balance_wallet</span><span class="font-label-sm text-label-sm">Budget</span></a>
+<a class="flex flex-col items-center justify-center bg-primary-container text-on-primary-container rounded-xl px-3 py-1" href="#"><span class="material-symbols-outlined">savings</span><span class="font-label-sm text-label-sm">Simpan</span></a>
+<a class="flex flex-col items-center justify-center text-on-surface-variant" href="#"><span class="material-symbols-outlined">credit_score</span><span class="font-label-sm text-label-sm">Hutang</span></a>
+</nav>
+</body></html>
