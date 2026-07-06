@@ -10,8 +10,13 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  title: "ProsperWealth — Manajemen Keuangan Keluarga",
+  title: "Manage Money — Manajemen Keuangan Keluarga",
   description: "Aplikasi manajemen keuangan keluarga yang cerdas dan terpercaya",
+  icons: {
+    icon: "/icon.svg",
+    shortcut: "/icon.svg",
+    apple: "/icon.svg",
+  },
 };
 
 export default function RootLayout({

@@ -1,11 +1,18 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
-import { Plus, PiggyBank, Home, Plane, ChevronDown } from "lucide-react";
+import { Plus, PiggyBank, Home, Plane, Trash2 } from "lucide-react";
 import { useStore, formatRupiah } from "@/lib/store";
 import {
   Select,
@@ -15,20 +22,24 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 
-const calcPercent = (collected: number, target: number) => Math.min(Math.round((collected / target) * 100), 100);
+const calcPercent = (collected: number, target: number) =>
+  Math.min(Math.round((collected / target) * 100), 100);
 
-const parseDeadlineMonths = (deadline: string): number => {
-  const monthMap: Record<string, number> = { Jan: 0, Feb: 1, Mar: 2, Apr: 3, Mei: 4, Jun: 5, Jul: 6, Agu: 7, Sep: 8, Okt: 9, Nov: 10, Des: 11 };
-  const parts = deadline.split(" ");
-  if (parts.length !== 2) return 6;
-  const month = monthMap[parts[0]];
-  const year = parseInt(parts[1], 10);
-  if (month === undefined || isNaN(year)) return 6;
-  const now = new Date();
-  const targetDate = new Date(year, month, 1);
-  const diff = (targetDate.getFullYear() - now.getFullYear()) * 12 + (targetDate.getMonth() - now.getMonth());
-  return Math.max(0, diff);
+function formatDeadline(dateStr?: string | null): string {
+  if (!dateStr) return "-";
+  const d = new Date(dateStr);
+  if (isNaN(d.getTime())) return "-";
+  const months = ["Jan", "Feb", "Mar", "Apr", "Mei", "Jun", "Jul", "Agu", "Sep", "Okt", "Nov", "Des"];
+  return `${months[d.getMonth()]} ${d.getFullYear()}`;
+}
+
+const monthMap: Record<string, number> = {
+  Jan: 0, Feb: 1, Mar: 2, Apr: 3, Mei: 4, Jun: 5,
+  Jul: 6, Agu: 7, Sep: 8, Okt: 9, Nov: 10, Des: 11,
 };
+
+const months = ["Jan", "Feb", "Mar", "Apr", "Mei", "Jun", "Jul", "Agu", "Sep", "Okt", "Nov", "Des"];
+const years = ["2023", "2024", "2025", "2026", "2027", "2028"];
 
 const colorStyles = [
   { icon: PiggyBank, iconColor: "text-primary", iconBg: "bg-primary/10", badgeBg: "bg-primary/10", badgeText: "text-primary", barColor: "bg-primary" },
@@ -36,60 +47,181 @@ const colorStyles = [
   { icon: Plane, iconColor: "text-secondary", iconBg: "bg-secondary/10", badgeBg: "bg-secondary/10", badgeText: "text-secondary", barColor: "bg-secondary" },
 ];
 
-const months = ["Jan", "Feb", "Mar", "Apr", "Mei", "Jun", "Jul", "Agu", "Sep", "Okt", "Nov", "Des"];
-const years = ["2023", "2024", "2025", "2026", "2027", "2028"];
+type ApiGoal = {
+  id: string;
+  name: string;
+  target: number;
+  collected: number;
+  completed: boolean;
+  deadline?: string;
+  userId?: string;
+  householdId?: string;
+};
+
+type ApiResponse = {
+  goals: ApiGoal[];
+};
 
 export default function SavingsPage() {
-  const goals = useStore((s) => s.goals);
-  const addGoal = useStore((s) => s.addGoal);
-  const depositGoal = useStore((s) => s.depositGoal);
-  const toggleGoalCompleted = useStore((s) => s.toggleGoalCompleted);
+  const activeUser = useStore((s) => s.activeUser);
+
+  const [goals, setGoals] = useState<ApiGoal[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const [dialogOpen, setDialogOpen] = useState(false);
   const [newName, setNewName] = useState("");
   const [newTarget, setNewTarget] = useState("");
   const [newMonth, setNewMonth] = useState("Jan");
-  const [newYear, setNewYear] = useState("2025");
+  const [newYear, setNewYear] = useState("2026");
 
   const [depositDialogOpen, setDepositDialogOpen] = useState(false);
   const [depositGoalId, setDepositGoalId] = useState<string | null>(null);
   const [depositAmount, setDepositAmount] = useState("");
 
-  function handleAddGoal() {
+  async function handleCompleteGoal(goalId: string) {
+    setSubmitting(true);
+    setError(null);
+    try {
+      const res = await fetch(`/api/goals?id=${encodeURIComponent(goalId)}&complete=true`, {
+        method: "PATCH",
+      });
+      if (!res.ok) {
+        const text = await res.text();
+        throw new Error(text || `Gagal menandai selesai: ${res.status}`);
+      }
+      fetchGoals();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Terjadi kesalahan");
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  async function handleDeleteGoal(goalId: string) {
+    if (!confirm("Yakin hapus target ini?")) return;
+    setSubmitting(true);
+    setError(null);
+    try {
+      const res = await fetch(`/api/goals?id=${encodeURIComponent(goalId)}`, {
+        method: "DELETE",
+      });
+      if (!res.ok) {
+        const text = await res.text();
+        throw new Error(text || `Gagal hapus target: ${res.status}`);
+      }
+      fetchGoals();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Terjadi kesalahan");
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  async function fetchGoals() {
+    setLoading(true);
+    setError(null);
+    try {
+      const userId = `user-${activeUser.toLowerCase()}`;
+      const res = await fetch(`/api/goals?userId=${encodeURIComponent(userId)}`, { cache: "no-store" });
+      if (!res.ok) {
+        const text = await res.text();
+        throw new Error(text || `Gagal memuat tabungan: ${res.status}`);
+      }
+      const data = (await res.json()) as ApiResponse;
+      setGoals(data.goals ?? []);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Terjadi kesalahan");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    fetchGoals();
+  }, [activeUser]);
+
+  async function handleAddGoal() {
     if (!newName.trim() || !newTarget.trim()) return;
     const targetValue = parseInt(newTarget.replace(/\./g, ""), 10);
     if (isNaN(targetValue) || targetValue <= 0) return;
 
-    const style = colorStyles[goals.length % colorStyles.length];
-    addGoal({
-      id: String(Date.now()),
-      name: newName.trim(),
-      collected: 0,
-      target: targetValue,
-      deadline: `${newMonth} ${newYear}`,
-      icon: style.icon,
-      iconColor: style.iconColor,
-      iconBg: style.iconBg,
-      badgeBg: style.badgeBg,
-      badgeText: style.badgeText,
-      barColor: style.barColor,
-    });
+    // Convert "Mei 2026" to ISO date (last day of that month)
+    const monthIndex = monthMap[newMonth];
+    const year = parseInt(newYear, 10);
+    const lastDay = new Date(year, monthIndex + 1, 0).getDate(); // last day of month
+    const deadline = `${year}-${String(monthIndex + 1).padStart(2, "0")}-${String(lastDay).padStart(2, "0")}`;
 
-    setDialogOpen(false);
-    setNewName("");
-    setNewTarget("");
+    setSubmitting(true);
+    setError(null);
+    try {
+      const res = await fetch("/api/goals", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: newName.trim(),
+          target: targetValue,
+          deadline,
+          user: activeUser,
+        }),
+      });
+      if (!res.ok) {
+        const text = await res.text();
+        throw new Error(text || `Gagal menambah target: ${res.status}`);
+      }
+      setDialogOpen(false);
+      setNewName("");
+      setNewTarget("");
+      fetchGoals();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Terjadi kesalahan");
+    } finally {
+      setSubmitting(false);
+    }
   }
 
-  function handleDeposit() {
+  async function handleDeposit() {
     if (!depositGoalId || !depositAmount.trim()) return;
     const amount = parseInt(depositAmount.replace(/\./g, ""), 10);
     if (isNaN(amount) || amount <= 0) return;
 
-    depositGoal(depositGoalId, amount);
-    setDepositDialogOpen(false);
-    setDepositAmount("");
-    setDepositGoalId(null);
+    setSubmitting(true);
+    setError(null);
+    try {
+      const res = await fetch(`/api/goals?id=${encodeURIComponent(depositGoalId)}&amount=${encodeURIComponent(amount)}`, {
+        method: "PATCH",
+      });
+      if (!res.ok) {
+        const text = await res.text();
+        throw new Error(text || `Gagal setor tabungan: ${res.status}`);
+      }
+      setDepositDialogOpen(false);
+      setDepositAmount("");
+      setDepositGoalId(null);
+      fetchGoals();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Terjadi kesalahan");
+    } finally {
+      setSubmitting(false);
+    }
   }
+
+  function getDeadlineMonths(deadline: string): number {
+    const parts = deadline.split(" ");
+    if (parts.length !== 2) return 6;
+    const month = monthMap[parts[0]];
+    const year = parseInt(parts[1], 10);
+    if (month === undefined || Number.isNaN(year)) return 6;
+    const now = new Date();
+    const targetDate = new Date(year, month, 1);
+    const diff = (targetDate.getFullYear() - now.getFullYear()) * 12 + (targetDate.getMonth() - now.getMonth());
+    return Math.max(0, diff);
+  }
+
+  const stylePalette = useMemo(() => {
+    return goals.map((_, i) => colorStyles[i % colorStyles.length]);
+  }, [goals.length]);
 
   return (
     <div className="space-y-6">
@@ -99,19 +231,28 @@ export default function SavingsPage() {
           <p className="text-sm text-muted-foreground mt-1">Kelola target keuangan dan pantau progress tabungan</p>
         </div>
         <Button className="gap-2" onClick={() => setDialogOpen(true)}>
-          <Plus className="h-4 w-4" />
-          Target Baru
+          <Plus className="h-4 w-4" /> Target Baru
         </Button>
       </div>
 
+      {error ? (
+        <div className="p-4 text-sm text-red-600 dark:text-red-400">
+          {error}
+          <button type="button" className="ml-3 underline" onClick={fetchGoals}>Coba lagi</button>
+        </div>
+      ) : null}
+
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-        {goals.length === 0 ? (
-          <p className="text-sm text-muted-foreground col-span-full text-center py-8">Belum ada target tabungan.</p>
+        {loading ? (
+          <p className="text-sm text-muted-foreground col-span-full text-center py-8">Memuat data...</p>
+        ) : goals.length === 0 ? (
+          <p className="text-sm text-muted-foreground col-span-full text-center py-8">Belum ada target tabungan. Klik &quot;Target Baru&quot; untuk memulai.</p>
         ) : (
-          goals.map((goal) => {
-            const Icon = goal.icon;
+          goals.map((goal, idx) => {
+            const style = stylePalette[idx];
+            const Icon = style.icon;
             const percent = calcPercent(goal.collected, goal.target);
-            const remainingMonths = parseDeadlineMonths(goal.deadline);
+            const remainingMonths = getDeadlineMonths(goal.deadline || "");
             const monthlySave = remainingMonths > 0 ? Math.round((goal.target - goal.collected) / remainingMonths) : 0;
             const isCompleted = goal.completed;
 
@@ -119,21 +260,25 @@ export default function SavingsPage() {
               <Card key={goal.id} className={`transition-shadow hover:shadow-md ${isCompleted ? "border-secondary/30" : ""}`}>
                 <CardContent className="p-5">
                   <div className="flex items-start justify-between mb-4">
-                    <div className={`w-10 h-10 rounded-full ${goal.iconBg} flex items-center justify-center`}><Icon className={`h-5 w-5 ${goal.iconColor}`} /></div>
-                    <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${goal.badgeBg} ${goal.badgeText}`}>{isCompleted ? "✓ Tercapai" : `${percent}%`}</span>
+                    <div className={`w-10 h-10 rounded-full ${style.iconBg} flex items-center justify-center`}>
+                      <Icon className={`h-5 w-5 ${style.iconColor}`} />
+                    </div>
+                    <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${style.badgeBg} ${style.badgeText}`}>
+                      {isCompleted ? "✓ Tercapai" : `${percent}%`}
+                    </span>
                   </div>
                   <h3 className="text-base font-semibold mb-1">{goal.name}</h3>
                   <p className="text-sm text-muted-foreground mb-4">Terkumpul {formatRupiah(goal.collected)} dari {formatRupiah(goal.target)}</p>
                   <div className="w-full bg-muted h-3 rounded-full overflow-hidden mb-2">
-                    <div className={`h-full rounded-full transition-all duration-500 ${goal.barColor} ${isCompleted ? "bg-secondary" : ""}`} style={{ width: `${percent}%` }} />
+                    <div className={`h-full rounded-full transition-all duration-500 ${isCompleted ? "bg-secondary" : style.barColor}`} style={{ width: `${percent}%` }} />
                   </div>
                   <div className="flex justify-between text-sm mb-1">
-                    <span className="text-muted-foreground">Target: {goal.deadline}</span>
+                    <span className="text-muted-foreground">Target: {formatDeadline(goal.deadline)}</span>
                     <span className="text-secondary font-medium">{isCompleted ? "Tercapai!" : `Sisa ${remainingMonths} bulan`}</span>
                   </div>
                   <div className="mt-4 pt-4 border-t border-border">
                     {isCompleted ? (
-                      <Button variant="outline" size="sm" className="w-full" onClick={() => toggleGoalCompleted(goal.id)}>Batalkan Selesai</Button>
+                      <p className="text-sm text-center text-muted-foreground">Target sudah tercapai 🎉</p>
                     ) : (
                       <div className="flex flex-col gap-2">
                         <div className="flex items-center justify-between text-xs">
@@ -142,7 +287,8 @@ export default function SavingsPage() {
                         </div>
                         <div className="flex gap-2">
                           <Button variant="default" size="sm" className="flex-1" onClick={() => { setDepositGoalId(goal.id); setDepositAmount(""); setDepositDialogOpen(true); }}>Nabung</Button>
-                          <Button variant="outline" size="sm" className="flex-1" onClick={() => toggleGoalCompleted(goal.id)}>Tandai Selesai</Button>
+                          <Button variant="outline" size="sm" className="flex-1" onClick={() => handleCompleteGoal(goal.id)}>Selesai</Button>
+                          <Button variant="ghost" size="sm" className="px-2 text-muted-foreground hover:text-destructive" onClick={() => handleDeleteGoal(goal.id)}><Trash2 className="h-4 w-4" /></Button>
                         </div>
                       </div>
                     )}
@@ -156,7 +302,10 @@ export default function SavingsPage() {
 
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent className="sm:max-w-[400px]">
-          <DialogHeader><DialogTitle>Target Baru</DialogTitle><DialogDescription>Buat target tabungan baru</DialogDescription></DialogHeader>
+          <DialogHeader>
+            <DialogTitle>Target Baru</DialogTitle>
+            <DialogDescription>Buat target tabungan baru</DialogDescription>
+          </DialogHeader>
           <div className="grid gap-4 py-4">
             <div className="grid gap-2"><label className="text-sm font-medium">Nama Target</label><Input placeholder="Mis: Dana Pendidikan, Mobil Baru..." value={newName} onChange={(e) => setNewName(e.target.value)} /></div>
             <div className="grid gap-2"><label className="text-sm font-medium">Target Nominal (Rp)</label><Input type="text" inputMode="numeric" placeholder="50.000.000" value={newTarget} onChange={(e) => { const raw = e.target.value.replace(/[^0-9]/g, ""); if (raw === "") setNewTarget(""); else setNewTarget(new Intl.NumberFormat("id-ID").format(parseInt(raw, 10))); }} /></div>
@@ -164,27 +313,21 @@ export default function SavingsPage() {
               <label className="text-sm font-medium">Deadline</label>
               <div className="flex gap-2">
                 <Select value={newMonth} onValueChange={(value) => value && setNewMonth(value)}>
-                  <SelectTrigger className="flex-1 h-9 text-sm">
-                    <SelectValue placeholder="Bulan" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {months.map((m) => (<SelectItem key={m} value={m}>{m}</SelectItem>))}
-                  </SelectContent>
+                  <SelectTrigger className="flex-1 h-9 text-sm"><SelectValue placeholder="Bulan" /></SelectTrigger>
+                  <SelectContent>{months.map((m) => (<SelectItem key={m} value={m}>{m}</SelectItem>))}</SelectContent>
                 </Select>
                 <Select value={newYear} onValueChange={(value) => value && setNewYear(value)}>
-                  <SelectTrigger className="flex-1 h-9 text-sm">
-                    <SelectValue placeholder="Tahun" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {years.map((y) => (<SelectItem key={y} value={y}>{y}</SelectItem>))}
-                  </SelectContent>
+                  <SelectTrigger className="flex-1 h-9 text-sm"><SelectValue placeholder="Tahun" /></SelectTrigger>
+                  <SelectContent>{years.map((y) => (<SelectItem key={y} value={y}>{y}</SelectItem>))}</SelectContent>
                 </Select>
               </div>
             </div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setDialogOpen(false)}>Batal</Button>
-            <Button onClick={handleAddGoal} disabled={!newName.trim() || !newTarget.trim()}>Simpan Target</Button>
+            <Button onClick={handleAddGoal} disabled={submitting || !newName.trim() || !newTarget.trim()}>
+              {submitting ? "Menyimpan..." : "Simpan Target"}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -203,7 +346,9 @@ export default function SavingsPage() {
             {depositGoalId && (() => {
               const g = goals.find((x) => x.id === depositGoalId);
               if (!g) return null;
-              const afterDeposit = g.collected + parseInt(depositAmount.replace(/\./g, "") || "0", 10);
+              const parsedDeposit = parseInt(depositAmount.replace(/\./g, ""), 10);
+              const safeDeposit = Number.isNaN(parsedDeposit) ? 0 : parsedDeposit;
+              const afterDeposit = g.collected + safeDeposit;
               const newPercent = Math.min(Math.round((afterDeposit / g.target) * 100), 100);
               return (
                 <div className="rounded-lg bg-muted p-3 space-y-1.5 text-sm">
@@ -216,7 +361,7 @@ export default function SavingsPage() {
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => { setDepositDialogOpen(false); setDepositAmount(""); setDepositGoalId(null); }}>Batal</Button>
-            <Button onClick={handleDeposit} disabled={!depositAmount.trim()}>Setor Sekarang</Button>
+            <Button onClick={handleDeposit} disabled={submitting || !depositAmount.trim()}>{submitting ? "Menyimpan..." : "Setor Sekarang"}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

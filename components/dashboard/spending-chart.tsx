@@ -1,50 +1,87 @@
 "use client";
 
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
+import { useEffect, useMemo, useState } from "react";
+import {
+  LineChart,
+  Line,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+} from "recharts";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { useState, useMemo } from "react";
-import { cn } from "@/lib/utils";
 import { useStore, formatRupiah } from "@/lib/store";
 
-const periods = ["7H", "1B", "1T"];
+type ApiTransaction = {
+  id: string;
+  name: string;
+  category: string;
+  date: string;
+  amount: number;
+  user: "Suami" | "Istri";
+};
+
+type DataPoint = { day: string; amount: number };
 
 export function SpendingChart() {
-  const [activePeriod, setActivePeriod] = useState("7H");
-  const transactions = useStore((s) => s.transactions);
+  const activeUser = useStore((s) => s.activeUser);
 
-  const data = useMemo(() => {
-    const expenses = transactions.filter((t) => t.amount < 0);
-    const days = ["Sen", "Sel", "Rab", "Kam", "Jum", "Sab", "Min"];
-    return days.map((day, i) => {
-      // Distribute expenses across days proportionally for demo
-      const dayTotal = expenses.length > 0
-        ? Math.abs(expenses.reduce((sum, t, idx) => sum + (idx % 7 === i ? t.amount : 0), 0))
-        : 0;
-      return { day, amount: dayTotal || Math.floor(5000000 + Math.random() * 5000000) };
-    });
+  const [transactions, setTransactions] = useState<ApiTransaction[]>([]);
+  const [loading, setLoading] = useState(false);
+
+  async function fetchTransactions() {
+    setLoading(true);
+    try {
+      const res = await fetch(`/api/transactions?user=${encodeURIComponent(activeUser)}`, {
+        cache: "no-store",
+      });
+      if (!res.ok) {
+        return;
+      }
+      const data = (await res.json()) as { transactions: ApiTransaction[] };
+      setTransactions(data.transactions ?? []);
+    } catch {
+      // keep previous state
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    fetchTransactions();
+  }, [activeUser]);
+
+  const data = useMemo<DataPoint[]>(() => {
+    const expenses = transactions
+      .filter((t) => t.amount < 0)
+      .map((t) => ({ date: new Date(t.date), amount: Math.abs(t.amount) }));
+
+    const days: DataPoint[] = [];
+    const today = new Date();
+    for (let i = 6; i >= 0; i--) {
+      const d = new Date(today);
+      d.setDate(today.getDate() - i);
+      const iso = d.toISOString().slice(0, 10);
+      const total = expenses
+        .filter((t) => t.date.toISOString().slice(0, 10) === iso)
+        .reduce((sum, t) => sum + t.amount, 0);
+      days.push({
+        day: d.toLocaleDateString("id-ID", { weekday: "short" }),
+        amount: total,
+      });
+    }
+    return days;
   }, [transactions]);
 
   return (
     <Card className="xl:col-span-2">
       <CardHeader className="flex flex-row items-center justify-between pb-4">
-        <CardTitle className="text-lg font-semibold">
-          Tren Pengeluaran
-        </CardTitle>
+        <CardTitle className="text-lg font-semibold">Tren Pengeluaran</CardTitle>
         <div className="flex gap-1 bg-muted rounded-lg p-0.5">
-          {periods.map((p) => (
-            <button
-              key={p}
-              onClick={() => setActivePeriod(p)}
-              className={cn(
-                "px-3 py-1 text-xs font-medium rounded-md transition-all",
-                activePeriod === p
-                  ? "bg-primary text-primary-foreground shadow-sm"
-                  : "text-muted-foreground hover:text-foreground"
-              )}
-            >
-              {p}
-            </button>
-          ))}
+          <button className="px-3 py-1 text-xs font-medium rounded-md transition-all bg-primary text-primary-foreground shadow-sm">
+            7 Hari
+          </button>
         </div>
       </CardHeader>
       <CardContent>
@@ -52,8 +89,18 @@ export function SpendingChart() {
           <ResponsiveContainer width="100%" height="100%">
             <LineChart data={data} margin={{ top: 5, right: 10, left: 10, bottom: 5 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} />
-              <XAxis dataKey="day" axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: "hsl(var(--muted-foreground))" }} />
-              <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: "hsl(var(--muted-foreground))" }} tickFormatter={(v) => `Rp${(v / 1000000).toFixed(0)}Jt`} />
+              <XAxis
+                dataKey="day"
+                axisLine={false}
+                tickLine={false}
+                tick={{ fontSize: 12, fill: "hsl(var(--muted-foreground))" }}
+              />
+              <YAxis
+                axisLine={false}
+                tickLine={false}
+                tick={{ fontSize: 12, fill: "hsl(var(--muted-foreground))" }}
+                tickFormatter={(v) => `Rp${(v / 1000000).toFixed(0)}Jt`}
+              />
               <Tooltip
                 contentStyle={{ borderRadius: "8px", border: "1px solid hsl(var(--border))", boxShadow: "0 4px 12px rgba(0,0,0,0.08)" }}
                 formatter={(value) => [typeof value === "number" ? formatRupiah(value) : String(value), "Pengeluaran"]}
@@ -64,7 +111,14 @@ export function SpendingChart() {
                   <stop offset="100%" stopColor="hsl(var(--primary))" stopOpacity={0} />
                 </linearGradient>
               </defs>
-              <Line type="monotone" dataKey="amount" stroke="hsl(var(--primary))" strokeWidth={2} dot={false} activeDot={{ r: 5, fill: "hsl(var(--primary))", stroke: "white", strokeWidth: 2 }} />
+              <Line
+                type="monotone"
+                dataKey="amount"
+                stroke="hsl(var(--primary))"
+                strokeWidth={2}
+                dot={false}
+                activeDot={{ r: 5, fill: "hsl(var(--primary))", stroke: "white", strokeWidth: 2 }}
+              />
             </LineChart>
           </ResponsiveContainer>
         </div>

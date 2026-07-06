@@ -1,6 +1,7 @@
 "use client";
+"use client";
 
-import { useState, useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   Table,
   TableBody,
@@ -34,7 +35,7 @@ import {
   ChevronDown,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
-import { useStore, formatRupiah, type Transaction } from "@/lib/store";
+import { useStore, formatRupiah } from "@/lib/store";
 import {
   Select,
   SelectContent,
@@ -64,8 +65,14 @@ const categoryStyles: Record<string, string> = {
     "bg-orange-100 text-orange-700 dark:bg-orange-900/40 dark:text-orange-300",
   Transportasi:
     "bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300",
-  Kuliner:
-    "bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300",
+  Kuliner: "bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300",
+  Belanja: "bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-300",
+  Gaji: "bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300",
+  Bonus: "bg-teal-100 text-teal-700 dark:bg-teal-900/40 dark:text-teal-300",
+  "Makanan & Minuman": "bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300",
+  "Kebutuhan Rumah": "bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300",
+  Kesehatan: "bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300",
+  Lainnya: "bg-gray-100 text-gray-700 dark:bg-gray-900/40 dark:text-gray-300",
 };
 
 const iconColors: Record<string, string> = {
@@ -74,6 +81,13 @@ const iconColors: Record<string, string> = {
   Hiburan: "text-orange-500",
   Transportasi: "text-primary",
   Kuliner: "text-amber-500",
+  Belanja: "text-purple-500",
+  Gaji: "text-green-500",
+  Bonus: "text-teal-500",
+  "Makanan & Minuman": "text-amber-500",
+  "Kebutuhan Rumah": "text-primary",
+  Kesehatan: "text-red-500",
+  Lainnya: "text-gray-500",
 };
 
 const iconBg: Record<string, string> = {
@@ -82,6 +96,13 @@ const iconBg: Record<string, string> = {
   Hiburan: "bg-orange-500/10",
   Transportasi: "bg-primary/10",
   Kuliner: "bg-amber-500/10",
+  Belanja: "bg-purple-500/10",
+  Gaji: "bg-green-500/10",
+  Bonus: "bg-teal-500/10",
+  "Makanan & Minuman": "bg-amber-500/10",
+  "Kebutuhan Rumah": "bg-primary/10",
+  Kesehatan: "bg-red-500/10",
+  Lainnya: "bg-gray-500/10",
 };
 
 const categoryIcons: Record<string, LucideIcon> = {
@@ -90,47 +111,141 @@ const categoryIcons: Record<string, LucideIcon> = {
   Hiburan: Film,
   Transportasi: Car,
   Kuliner: Utensils,
+  Belanja: ShoppingCart,
+  Gaji: Briefcase,
+  Bonus: Briefcase,
+  "Makanan & Minuman": Utensils,
+  "Kebutuhan Rumah": Home,
+  Kesehatan: Heart,
+  Lainnya: ShoppingCart,
 };
 
-export default function TransactionsPage() {
-  const transactions = useStore((s) => s.transactions);
-  const addTransaction = useStore((s) => s.addTransaction);
+type ApiTransaction = {
+  id: string;
+  name: string;
+  category: string;
+  date: string;
+  amount: number;
+  user: "Suami" | "Istri";
+  categoryId?: string;
+  categoryName?: string;
+  categoryType?: string;
+  categoryIcon?: string | null;
+};
 
-  // Filter state (UI only, not in store)
+type ApiResponse = {
+  transactions: ApiTransaction[];
+};
+
+const catIconMap: Record<string, LucideIcon> = {
+  Belanja: ShoppingCart,
+  Gaji: Briefcase,
+  Bonus: Briefcase,
+  Hiburan: Film,
+  "Kebutuhan Rumah": Home,
+  Transportasi: Car,
+  Kuliner: Utensils,
+  Kesehatan: Heart,
+  "Makanan & Minuman": Utensils,
+  Lainnya: ShoppingCart,
+  Kebutuhan: ShoppingCart,
+  Pendapatan: Briefcase,
+};
+
+function resolveCategoryIcon(name?: string | null): LucideIcon {
+  if (!name) return ShoppingCart;
+  return catIconMap[name] || categoryIcons[name] || ShoppingCart;
+}
+
+export default function TransactionsPage() {
+  const activeUser = useStore((s) => s.activeUser);
+
+  const [transactions, setTransactions] = useState<ApiTransaction[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
   const [searchQuery, setSearchQuery] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("Semua Kategori");
+  const [userFilter, setUserFilter] = useState("Semua User");
   const [periodFilter, setPeriodFilter] = useState("Bulan Ini");
   const [currentPage, setCurrentPage] = useState(1);
 
-  // Dialog state
+  const [categories, setCategories] = useState<{ id: string; name: string; type?: string }[]>([]);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [newName, setNewName] = useState("");
-  const [newCategory, setNewCategory] = useState("Kebutuhan");
+  const [newCategory, setNewCategory] = useState("Makanan & Minuman");
   const [newAmount, setNewAmount] = useState("");
   const [newType, setNewType] = useState<"pengeluaran" | "pemasukan">(
     "pengeluaran",
   );
-  const [newUser, setNewUser] = useState<"Suami" | "Istri">("Suami");
+  const [newUser, setNewUser] = useState<"Suami" | "Istri">(activeUser as "Suami" | "Istri");
 
-  // Filter & paginate
+  const periodQueryMap: Record<string, string> = {
+    "Bulan Ini": "month",
+    "Bulan Lalu": "lastMonth",
+    "3 Bulan": "3months",
+    "Tahun Ini": "year",
+  };
+
+  const buildQuery = (): Record<string, string> => {
+    const params: Record<string, string> = {};
+    if (userFilter !== "Semua User") params.user = userFilter;
+    const q = searchQuery.trim();
+    if (q) params.q = q;
+    if (categoryFilter !== "Semua Kategori") params.category = categoryFilter;
+    const mappedPeriod = periodQueryMap[periodFilter];
+    if (mappedPeriod) params.period = mappedPeriod;
+    return params;
+  };
+
+  async function fetchCategories() {
+    try {
+      const res = await fetch("/api/categories", { cache: "no-store" });
+      if (res.ok) {
+        const data = await res.json() as { categories: { id: string; name: string; type?: string }[] };
+        setCategories(data.categories ?? []);
+      }
+    } catch {
+      // keep functional
+    }
+  }
+
+  async function fetchTransactions() {
+    setLoading(true);
+    setError(null);
+    try {
+      const params = new URLSearchParams(buildQuery());
+      const res = await fetch(`/api/transactions?${params.toString()}`, {
+        cache: "no-store",
+      });
+      if (!res.ok) {
+        const text = await res.text();
+        throw new Error(text || `Gagal memuat transaksi: ${res.status}`);
+      }
+      const data = (await res.json()) as ApiResponse;
+      setTransactions(data.transactions ?? []);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Terjadi kesalahan");
+      setTransactions([]);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    fetchTransactions();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeUser, userFilter, categoryFilter, searchQuery, periodFilter]);
+
+  useEffect(() => {
+    fetchCategories();
+  }, []);
+
   const filtered = useMemo(() => {
-    let result = [...transactions];
-
-    if (searchQuery.trim()) {
-      const q = searchQuery.toLowerCase();
-      result = result.filter(
-        (tx) =>
-          tx.name.toLowerCase().includes(q) ||
-          tx.category.toLowerCase().includes(q),
-      );
-    }
-
-    if (categoryFilter !== "Semua Kategori") {
-      result = result.filter((tx) => tx.category === categoryFilter);
-    }
-
-    return result;
-  }, [searchQuery, categoryFilter, transactions]);
+    if (!periodFilter || periodFilter === "Semua Periode") return transactions;
+    return transactions;
+  }, [transactions, periodFilter]);
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / ITEMS_PER_PAGE));
   const safePage = Math.min(currentPage, totalPages);
@@ -142,6 +257,7 @@ export default function TransactionsPage() {
   function resetSearch() {
     setSearchQuery("");
     setCategoryFilter("Semua Kategori");
+    setUserFilter("Semua User");
     setPeriodFilter("Bulan Ini");
     setCurrentPage(1);
   }
@@ -153,45 +269,46 @@ export default function TransactionsPage() {
     if (isNaN(amountValue) || amountValue <= 0) return;
 
     const finalAmount = newType === "pengeluaran" ? -amountValue : amountValue;
-    const now = new Date();
-    const months = [
-      "Jan",
-      "Feb",
-      "Mar",
-      "Apr",
-      "Mei",
-      "Jun",
-      "Jul",
-      "Agu",
-      "Sep",
-      "Okt",
-      "Nov",
-      "Des",
-    ];
-    const dateStr = `${now.getDate()} ${months[now.getMonth()]} ${now.getFullYear()}`;
 
-    const Icon = categoryIcons[newCategory] || ShoppingCart;
+    setSubmitting(true);
+    setError(null);
 
-    const newTx: Transaction = {
-      id: String(Date.now()),
-      name: newName.trim(),
-      category: newCategory,
-      date: dateStr,
-      amount: finalAmount,
-      user: newUser,
-      icon: Icon,
-    };
-
-    addTransaction(newTx);
-    setDialogOpen(false);
-    setNewName("");
-    setNewAmount("");
-    setNewCategory("Kebutuhan");
-    setNewType("pengeluaran");
-    setCurrentPage(1);
+    fetch("/api/transactions", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        name: newName.trim(),
+        category: newCategory,
+        amount: finalAmount,
+        type: newType,
+        user: newUser,
+        date: new Date().toISOString(),
+      }),
+    })
+      .then(async (res) => {
+        if (!res.ok) {
+          const text = await res.text();
+          throw new Error(text || `Gagal menambah transaksi: ${res.status}`);
+        }
+        return res.json();
+      })
+      .then(() => {
+        setDialogOpen(false);
+        setNewName("");
+        setNewAmount("");
+        setNewCategory("Makanan & Minuman");
+        setNewType("pengeluaran");
+        setCurrentPage(1);
+        fetchTransactions();
+      })
+      .catch((err) => {
+        setError(err instanceof Error ? err.message : "Terjadi kesalahan");
+      })
+      .finally(() => {
+        setSubmitting(false);
+      });
   }
 
-  // Generate page numbers for pagination
   const getPageNumbers = () => {
     const pages: (number | "ellipsis")[] = [];
     const maxVisible = 5;
@@ -220,7 +337,6 @@ export default function TransactionsPage() {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">
@@ -236,11 +352,9 @@ export default function TransactionsPage() {
         </Button>
       </div>
 
-      {/* Filter Bar */}
       <div className="rounded-xl border border-border bg-card overflow-hidden">
         <div className="p-4 md:p-5 border-b border-border">
           <div className="flex flex-wrap gap-3 items-center">
-            {/* Search */}
             <div className="flex-1 min-w-[200px]">
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -256,7 +370,6 @@ export default function TransactionsPage() {
               </div>
             </div>
 
-            {/* Category Filter */}
             <Select
               value={categoryFilter}
               onValueChange={(value) => {
@@ -269,15 +382,15 @@ export default function TransactionsPage() {
                 <SelectValue placeholder="Semua Kategori" />
               </SelectTrigger>
               <SelectContent>
-                {CATEGORIES.map((cat) => (
-                  <SelectItem key={cat} value={cat}>
-                    {cat}
+                <SelectItem value="Semua Kategori">Semua Kategori</SelectItem>
+                {categories.map((cat) => (
+                  <SelectItem key={cat.id} value={cat.name}>
+                    {cat.name}
                   </SelectItem>
                 ))}
               </SelectContent>
             </Select>
 
-            {/* Period Filter */}
             <Select
               value={periodFilter}
               onValueChange={(value) => value && setPeriodFilter(value)}
@@ -294,6 +407,24 @@ export default function TransactionsPage() {
               </SelectContent>
             </Select>
 
+            <Select
+              value={userFilter}
+              onValueChange={(value) => {
+                if (!value) return;
+                setUserFilter(value);
+                setCurrentPage(1);
+              }}
+            >
+              <SelectTrigger className="h-9 min-w-[130px] text-sm">
+                <SelectValue placeholder="Semua User" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="Semua User">Semua User</SelectItem>
+                <SelectItem value="Suami">Suami</SelectItem>
+                <SelectItem value="Istri">Istri</SelectItem>
+              </SelectContent>
+            </Select>
+
             <Button
               variant="secondary"
               size="sm"
@@ -305,7 +436,19 @@ export default function TransactionsPage() {
           </div>
         </div>
 
-        {/* Table */}
+        {error ? (
+          <div className="p-4 text-sm text-red-600 dark:text-red-400">
+            {error}
+            <button
+              type="button"
+              className="ml-3 underline"
+              onClick={fetchTransactions}
+            >
+              Coba lagi
+            </button>
+          </div>
+        ) : null}
+
         <div className="overflow-x-auto">
           <Table>
             <TableHeader>
@@ -328,7 +471,16 @@ export default function TransactionsPage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {paginated.length === 0 ? (
+              {loading ? (
+                <TableRow>
+                  <TableCell
+                    colSpan={5}
+                    className="text-center py-12 text-muted-foreground"
+                  >
+                    Memuat data...
+                  </TableCell>
+                </TableRow>
+              ) : paginated.length === 0 ? (
                 <TableRow>
                   <TableCell
                     colSpan={5}
@@ -339,7 +491,7 @@ export default function TransactionsPage() {
                 </TableRow>
               ) : (
                 paginated.map((tx) => {
-                  const Icon = tx.icon;
+                  const Icon = resolveCategoryIcon(tx.category);
                   return (
                     <TableRow
                       key={tx.id}
@@ -348,15 +500,10 @@ export default function TransactionsPage() {
                       <TableCell>
                         <div className="flex items-center gap-3">
                           <div
-                            className={`w-9 h-9 rounded-full ${
-                              iconBg[tx.category] || "bg-muted"
-                            } flex items-center justify-center shrink-0`}
+                            className={`w-9 h-9 rounded-full ${iconBg[tx.category] || "bg-muted"} flex items-center justify-center shrink-0`}
                           >
                             <Icon
-                              className={`h-4 w-4 ${
-                                iconColors[tx.category] ||
-                                "text-muted-foreground"
-                              }`}
+                              className={`h-4 w-4 ${iconColors[tx.category] || "text-muted-foreground"}`}
                             />
                           </div>
                           <span className="text-sm font-medium truncate max-w-[180px]">
@@ -367,9 +514,7 @@ export default function TransactionsPage() {
                       <TableCell className="hidden md:table-cell">
                         <Badge
                           variant="secondary"
-                          className={`text-[10px] font-bold uppercase px-2 py-0.5 ${
-                            categoryStyles[tx.category] || ""
-                          }`}
+                          className={`text-[10px] font-bold uppercase px-2 py-0.5 ${categoryStyles[tx.category] || ""}`}
                         >
                           {tx.category}
                         </Badge>
@@ -380,11 +525,7 @@ export default function TransactionsPage() {
                       <TableCell className="hidden lg:table-cell">
                         <div className="flex items-center gap-2">
                           <div
-                            className={`w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold ${
-                              tx.user === "Suami"
-                                ? "bg-primary/10 text-primary"
-                                : "bg-orange-500/10 text-orange-500"
-                            }`}
+                            className={`w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold ${tx.user === "Suami" ? "bg-primary/10 text-primary" : "bg-orange-500/10 text-orange-500"}`}
                           >
                             {tx.user === "Suami" ? "S" : "I"}
                           </div>
@@ -394,9 +535,7 @@ export default function TransactionsPage() {
                         </div>
                       </TableCell>
                       <TableCell
-                        className={`text-right text-sm font-semibold ${
-                          tx.amount >= 0 ? "text-secondary" : "text-foreground"
-                        }`}
+                        className={`text-right text-sm font-semibold ${tx.amount >= 0 ? "text-secondary" : "text-foreground"}`}
                       >
                         <span className="whitespace-nowrap">
                           {tx.amount >= 0 ? "+" : ""}
@@ -411,7 +550,6 @@ export default function TransactionsPage() {
           </Table>
         </div>
 
-        {/* Pagination */}
         <div className="p-4 border-t border-border flex flex-wrap items-center justify-between gap-3">
           <span className="text-sm text-muted-foreground">
             Menampilkan{" "}
@@ -439,11 +577,7 @@ export default function TransactionsPage() {
               ) : (
                 <button
                   key={page}
-                  className={`px-3 py-1 rounded-lg text-xs font-medium transition-colors ${
-                    safePage === page
-                      ? "bg-primary text-primary-foreground shadow-sm"
-                      : "border border-border text-muted-foreground hover:bg-accent"
-                  }`}
+                  className={`px-3 py-1 rounded-lg text-xs font-medium transition-colors ${safePage === page ? "bg-primary text-primary-foreground shadow-sm" : "border border-border text-muted-foreground hover:bg-accent"}`}
                   onClick={() => setCurrentPage(page)}
                 >
                   {page}
@@ -461,7 +595,6 @@ export default function TransactionsPage() {
         </div>
       </div>
 
-      {/* Tambah Transaksi Dialog */}
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent className="sm:max-w-[425px]">
           <DialogHeader>
@@ -487,22 +620,14 @@ export default function TransactionsPage() {
                 <button
                   type="button"
                   onClick={() => setNewType("pengeluaran")}
-                  className={`flex-1 py-2 rounded-lg text-sm font-medium transition-colors ${
-                    newType === "pengeluaran"
-                      ? "bg-destructive/10 text-destructive border border-destructive/30"
-                      : "bg-muted text-muted-foreground border border-border"
-                  }`}
+                  className={`flex-1 py-2 rounded-lg text-sm font-medium transition-colors ${newType === "pengeluaran" ? "bg-destructive/10 text-destructive border border-destructive/30" : "bg-muted text-muted-foreground border border-border"}`}
                 >
                   Pengeluaran
                 </button>
                 <button
                   type="button"
                   onClick={() => setNewType("pemasukan")}
-                  className={`flex-1 py-2 rounded-lg text-sm font-medium transition-colors ${
-                    newType === "pemasukan"
-                      ? "bg-secondary/10 text-secondary border border-secondary/30"
-                      : "bg-muted text-muted-foreground border border-border"
-                  }`}
+                  className={`flex-1 py-2 rounded-lg text-sm font-medium transition-colors ${newType === "pemasukan" ? "bg-secondary/10 text-secondary border border-secondary/30" : "bg-muted text-muted-foreground border border-border"}`}
                 >
                   Pemasukan
                 </button>
@@ -519,9 +644,9 @@ export default function TransactionsPage() {
                   <SelectValue placeholder="Pilih kategori" />
                 </SelectTrigger>
                 <SelectContent>
-                  {CATEGORIES.filter((c) => c !== "Semua Kategori").map((cat) => (
-                    <SelectItem key={cat} value={cat}>
-                      {cat}
+                  {categories.map((cat) => (
+                    <SelectItem key={cat.id} value={cat.name}>
+                      {cat.name}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -553,22 +678,14 @@ export default function TransactionsPage() {
                 <button
                   type="button"
                   onClick={() => setNewUser("Suami")}
-                  className={`flex-1 py-2 rounded-lg text-sm font-medium transition-colors ${
-                    newUser === "Suami"
-                      ? "bg-primary/10 text-primary border border-primary/30"
-                      : "bg-muted text-muted-foreground border border-border"
-                  }`}
+                  className={`flex-1 py-2 rounded-lg text-sm font-medium transition-colors ${newUser === "Suami" ? "bg-primary/10 text-primary border border-primary/30" : "bg-muted text-muted-foreground border border-border"}`}
                 >
                   Suami
                 </button>
                 <button
                   type="button"
                   onClick={() => setNewUser("Istri")}
-                  className={`flex-1 py-2 rounded-lg text-sm font-medium transition-colors ${
-                    newUser === "Istri"
-                      ? "bg-primary/10 text-primary border border-primary/30"
-                      : "bg-muted text-muted-foreground border border-border"
-                  }`}
+                  className={`flex-1 py-2 rounded-lg text-sm font-medium transition-colors ${newUser === "Istri" ? "bg-primary/10 text-primary border border-primary/30" : "bg-muted text-muted-foreground border border-border"}`}
                 >
                   Istri
                 </button>
@@ -582,9 +699,9 @@ export default function TransactionsPage() {
             </Button>
             <Button
               onClick={handleAddTransaction}
-              disabled={!newName.trim() || !newAmount.trim()}
+              disabled={submitting || !newName.trim() || !newAmount.trim()}
             >
-              Simpan Transaksi
+              {submitting ? "Menyimpan..." : "Simpan Transaksi"}
             </Button>
           </DialogFooter>
         </DialogContent>

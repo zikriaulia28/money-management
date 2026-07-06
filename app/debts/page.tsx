@@ -1,11 +1,29 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
-import { Plus, Home, Car, CreditCard, User, GraduationCap, DollarSign, AlertTriangle, CheckCircle2 } from "lucide-react";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import {
+  Plus,
+  Home,
+  Car,
+  CreditCard,
+  User,
+  GraduationCap,
+  DollarSign,
+  AlertTriangle,
+  CheckCircle2,
+  Trash2,
+} from "lucide-react";
 import { useStore, formatRupiah, formatDateDisplay } from "@/lib/store";
 
 const DEBT_CATEGORIES = [
@@ -18,17 +36,36 @@ const DEBT_CATEGORIES = [
 ];
 
 const debtIconMap: Record<string, { icon: React.ElementType; iconColor: string; iconBg: string }> = {};
-DEBT_CATEGORIES.forEach((c) => { debtIconMap[c.value] = { icon: c.icon, iconColor: c.iconColor, iconBg: c.iconBg }; });
+DEBT_CATEGORIES.forEach((c) => {
+  debtIconMap[c.value] = { icon: c.icon, iconColor: c.iconColor, iconBg: c.iconBg };
+});
 
 function getDebtStyle(category: string) {
   return debtIconMap[category] || debtIconMap["Lainnya"];
 }
 
+type ApiDebt = {
+  id: string;
+  name: string;
+  lender: string;
+  category: string;
+  total: number;
+  remaining: number;
+  monthly: number;
+  dueDate: string;
+  dueStatus?: string;
+  interestRate?: number;
+  userId: string;
+  householdId: string;
+};
+
 export default function DebtsPage() {
-  const debts = useStore((s) => s.debts);
-  const addDebt = useStore((s) => s.addDebt);
-  const payDebt = useStore((s) => s.payDebt);
-  const toggleDebtStatus = useStore((s) => s.toggleDebtStatus);
+  const activeUser = useStore((s) => s.activeUser);
+
+  const [debts, setDebts] = useState<ApiDebt[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const [dialogOpen, setDialogOpen] = useState(false);
   const [newName, setNewName] = useState("");
@@ -39,31 +76,164 @@ export default function DebtsPage() {
   const [newMonthly, setNewMonthly] = useState("");
   const [newDueDate, setNewDueDate] = useState("");
 
-  const totals = debts.reduce((acc, d) => ({ total: acc.total + d.total, remaining: acc.remaining + d.remaining, monthly: acc.monthly + d.monthly }), { total: 0, remaining: 0, monthly: 0 });
+  const userId = useMemo(() => `user-${activeUser.toLowerCase()}`, [activeUser]);
 
-  function handleAddDebt() {
+  async function fetchDebts() {
+    setLoading(true);
+    setError(null);
+    try {
+      const res = await fetch(`/api/debts?userId=${encodeURIComponent(userId)}`, { cache: "no-store" });
+      if (!res.ok) {
+        const text = await res.text();
+        throw new Error(text || `Gagal memuat cicilan: ${res.status}`);
+      }
+      const data = (await res.json()) as { debts: ApiDebt[] };
+      setDebts(data.debts ?? []);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Terjadi kesalahan");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    fetchDebts();
+  }, [userId]);
+
+  const totals = useMemo(() => {
+    return debts.reduce(
+      (acc, d) => ({
+        total: acc.total + d.total,
+        remaining: acc.remaining + d.remaining,
+        monthly: acc.monthly + d.monthly,
+      }),
+      { total: 0, remaining: 0, monthly: 0 }
+    );
+  }, [debts]);
+
+  async function handleAddDebt() {
     if (!newName.trim() || !newLender.trim() || !newTotal.trim() || !newMonthly.trim()) return;
     const totalVal = parseInt(newTotal.replace(/\./g, ""), 10);
     const monthlyVal = parseInt(newMonthly.replace(/\./g, ""), 10);
     if (isNaN(totalVal) || totalVal <= 0 || isNaN(monthlyVal) || monthlyVal <= 0) return;
 
-    addDebt({
-      id: String(Date.now()),
-      category: newCategory,
-      name: newName.trim(),
-      lender: newLender.trim(),
-      interest: newInterest.trim() || "-",
-      total: totalVal,
-      remaining: totalVal,
-      monthly: monthlyVal,
-      progress: 0,
-      dueDate: newDueDate.trim() || "-",
-      dueStatus: "warning",
-    });
+    setSubmitting(true);
+    setError(null);
+    try {
+      const res = await fetch("/api/debts", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: newName.trim(),
+          lender: newLender.trim(),
+          category: newCategory,
+          total: totalVal,
+          monthly: monthlyVal,
+          dueDate: newDueDate || new Date().toISOString().slice(0, 10),
+          interestRate: newInterest.trim() || undefined,
+          user: activeUser,
+        }),
+      });
 
-    setDialogOpen(false);
-    setNewName(""); setNewCategory("KPR"); setNewLender(""); setNewInterest("");
-    setNewTotal(""); setNewMonthly(""); setNewDueDate("");
+      if (!res.ok) {
+        const text = await res.text();
+        throw new Error(text || `Gagal menambah cicilan: ${res.status}`);
+      }
+
+      setDialogOpen(false);
+      setNewName("");
+      setNewCategory("KPR");
+      setNewLender("");
+      setNewInterest("");
+      setNewTotal("");
+      setNewMonthly("");
+      setNewDueDate("");
+      fetchDebts();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Terjadi kesalahan");
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  async function handlePayDebt(debtId: string, monthly: number) {
+    setSubmitting(true);
+    setError(null);
+    try {
+      const res = await fetch("/api/debts", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "pay",
+          id: debtId,
+          payAmount: monthly,
+        }),
+      });
+
+      if (!res.ok) {
+        const text = await res.text();
+        throw new Error(text || `Gagal bayar cicilan: ${res.status}`);
+      }
+
+      fetchDebts();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Terjadi kesalahan");
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  async function handleToggleStatus(debtId: string) {
+    setSubmitting(true);
+    setError(null);
+    try {
+      const res = await fetch("/api/debts", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "toggle-status",
+          id: debtId,
+        }),
+      });
+
+      if (!res.ok) {
+        const text = await res.text();
+        throw new Error(text || `Gagal memperbarui status: ${res.status}`);
+      }
+
+      fetchDebts();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Terjadi kesalahan");
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  async function handleDeleteDebt(debtId: string) {
+    if (!confirm("Apakah Anda yakin ingin menghapus cicilan ini?")) return;
+    setSubmitting(true);
+    setError(null);
+    try {
+      const res = await fetch("/api/debts", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "delete",
+          id: debtId,
+        }),
+      });
+
+      if (!res.ok) {
+        const text = await res.text();
+        throw new Error(text || `Gagal menghapus cicilan: ${res.status}`);
+      }
+
+      fetchDebts();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Terjadi kesalahan");
+    } finally {
+      setSubmitting(false);
+    }
   }
 
   return (
@@ -78,6 +248,15 @@ export default function DebtsPage() {
           Cicilan Baru
         </Button>
       </div>
+
+      {error ? (
+        <div className="p-4 text-sm text-red-600 dark:text-red-400">
+          {error}
+          <button type="button" className="ml-3 underline" onClick={fetchDebts}>
+            Coba lagi
+          </button>
+        </div>
+      ) : null}
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <Card><CardContent className="p-5">
@@ -95,12 +274,18 @@ export default function DebtsPage() {
       </div>
 
       <div className="flex flex-col gap-4">
-        {debts.length === 0 ? (
-          <p className="text-sm text-muted-foreground text-center py-8">Belum ada cicilan. Klik &quot;Cicilan Baru&quot; untuk memulai.</p>
+        {loading ? (
+          <p className="text-sm text-muted-foreground text-center py-8">Memuat data cicilan...</p>
+        ) : debts.length === 0 ? (
+          <p className="text-sm text-muted-foreground text-center py-8">Belum ada cicilan. Klik "Cicilan Baru" untuk memulai.</p>
         ) : (
           debts.map((debt) => {
             const style = getDebtStyle(debt.category);
             const Icon = style.icon;
+            const paid = debt.total - debt.remaining;
+            const progress = debt.total > 0 ? Math.min(Math.round((paid / debt.total) * 100), 100) : 0;
+            const isPaid = debt.dueStatus === "paid";
+
             return (
               <Card key={debt.id} className="transition-shadow hover:shadow-md">
                 <CardContent className="p-5">
@@ -109,13 +294,13 @@ export default function DebtsPage() {
                       <div className={`w-10 h-10 rounded-full ${style.iconBg} flex items-center justify-center shrink-0 mt-0.5`}><Icon className={`h-5 w-5 ${style.iconColor}`} /></div>
                       <div>
                         <h3 className="text-base font-semibold">{debt.name}</h3>
-                        <p className="text-sm text-muted-foreground">{debt.lender}{debt.interest !== "-" ? ` — Bunga ${debt.interest}` : ""}</p>
+                        <p className="text-sm text-muted-foreground">{debt.lender}{debt.interestRate !== undefined ? ` — Bunga ${debt.interestRate}%` : ""}</p>
                       </div>
                     </div>
-                    <span className={`text-xs font-bold px-2.5 py-1 rounded-full ${debt.progress >= 75 ? "bg-secondary/10 text-secondary" : "bg-primary/10 text-primary"}`}>{debt.progress}%</span>
+                    <span className={`text-xs font-bold px-2.5 py-1 rounded-full ${progress >= 75 ? "bg-secondary/10 text-secondary" : "bg-primary/10 text-primary"}`}>{progress}%</span>
                   </div>
                   <div className="w-full bg-muted h-3 rounded-full overflow-hidden mb-3">
-                    <div className="bg-primary h-full rounded-full transition-all duration-500" style={{ width: `${debt.progress}%` }} />
+                    <div className="bg-primary h-full rounded-full transition-all duration-500" style={{ width: `${progress}%` }} />
                   </div>
                   <div className="grid grid-cols-3 gap-4">
                     <div><p className="text-xs text-muted-foreground">Total</p><p className="text-sm font-semibold">{formatRupiah(debt.total)}</p></div>
@@ -124,15 +309,18 @@ export default function DebtsPage() {
                   </div>
                   <div className="flex items-center justify-between mt-4 pt-3 border-t border-border">
                     <div className="flex items-center gap-2">
-                      {debt.dueStatus === "warning" ? (
-                        <><AlertTriangle className="h-4 w-4 text-orange-500" /><span className="text-sm text-orange-500 font-medium">Jatuh tempo: {formatDateDisplay(debt.dueDate)}</span></>
-                      ) : (
+                      {isPaid ? (
                         <><CheckCircle2 className="h-4 w-4 text-secondary" /><span className="text-sm text-secondary font-medium">Lunas bulan ini</span></>
+                      ) : (
+                        <><AlertTriangle className="h-4 w-4 text-orange-500" /><span className="text-sm text-orange-500 font-medium">Jatuh tempo: {formatDateDisplay(debt.dueDate)}</span></>
                       )}
                     </div>
                     <div className="flex gap-2">
-                      <Button variant="outline" size="sm" className="h-8 text-xs" onClick={() => payDebt(debt.id, debt.monthly)}>Bayar</Button>
-                      <Button variant="ghost" size="sm" className="h-8 text-xs" onClick={() => toggleDebtStatus(debt.id)}>{debt.dueStatus === "paid" ? "Batal" : "Tandai Lunas"}</Button>
+                      <Button variant="outline" size="sm" className="h-8 text-xs" onClick={() => handlePayDebt(debt.id, debt.monthly)} disabled={submitting}>Bayar</Button>
+                      <Button variant="ghost" size="sm" className="h-8 text-xs" onClick={() => handleToggleStatus(debt.id)} disabled={submitting}>{isPaid ? "Batal" : "Tandai Lunas"}</Button>
+                      <Button variant="ghost" size="sm" className="h-8 w-8 p-0 text-destructive hover:bg-destructive/10 hover:text-destructive" onClick={() => handleDeleteDebt(debt.id)} disabled={submitting}>
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
                     </div>
                   </div>
                 </CardContent>
@@ -174,7 +362,7 @@ export default function DebtsPage() {
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setDialogOpen(false)}>Batal</Button>
-            <Button onClick={handleAddDebt} disabled={!newName.trim() || !newLender.trim() || !newTotal.trim() || !newMonthly.trim()}>Simpan Cicilan</Button>
+            <Button onClick={handleAddDebt} disabled={submitting || !newName.trim() || !newLender.trim() || !newTotal.trim() || !newMonthly.trim()}>{submitting ? "Menyimpan..." : "Simpan Cicilan"}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

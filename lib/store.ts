@@ -93,13 +93,24 @@ export const formatRupiah = (value: number) =>
 
 export const formatDateDisplay = (dateStr: string) => {
   if (!dateStr || dateStr === "-") return "-";
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) return dateStr;
-  const [y, m, d] = dateStr.split("-");
-  const months = [
-    "Jan", "Feb", "Mar", "Apr", "Mei", "Jun",
-    "Jul", "Agu", "Sep", "Okt", "Nov", "Des",
-  ];
-  return `${parseInt(d, 10)} ${months[parseInt(m, 10) - 1]} ${y}`;
+  if (/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
+    const [y, m, d] = dateStr.split("-");
+    const months = [
+      "Jan", "Feb", "Mar", "Apr", "Mei", "Jun",
+      "Jul", "Agu", "Sep", "Okt", "Nov", "Des",
+    ];
+    return `${parseInt(d, 10)} ${months[parseInt(m, 10) - 1]} ${y}`;
+  }
+  // Handle ISO date string (e.g. "2026-07-06T00:00:00.000Z")
+  const d = new Date(dateStr);
+  if (!isNaN(d.getTime())) {
+    const months = [
+      "Jan", "Feb", "Mar", "Apr", "Mei", "Jun",
+      "Jul", "Agu", "Sep", "Okt", "Nov", "Des",
+    ];
+    return `${d.getDate()} ${months[d.getMonth()]} ${d.getFullYear()}`;
+  }
+  return "-";
 };
 
 // ── Initial Data ───────────────────────────────────────────────

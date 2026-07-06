@@ -1,45 +1,89 @@
 "use client";
 
+import { useEffect, useMemo, useState } from "react";
 import { TrendingUp, TrendingDown, Wallet, ArrowUpRight, ArrowDownRight } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 import { useStore, formatRupiah } from "@/lib/store";
 
-export function SummaryCards() {
-  const transactions = useStore((s) => s.transactions);
+type ApiTransaction = {
+  id: string;
+  name: string;
+  category: string;
+  date: string;
+  amount: number;
+  user: "Suami" | "Istri";
+};
 
-  const totalIncome = transactions
-    .filter((t) => t.amount > 0)
-    .reduce((sum, t) => sum + t.amount, 0);
-  const totalExpense = transactions
-    .filter((t) => t.amount < 0)
-    .reduce((sum, t) => sum + Math.abs(t.amount), 0);
-  const balance = totalIncome - totalExpense;
+type Summary = {
+  totalIncome: number;
+  totalExpense: number;
+  balance: number;
+};
+
+export function SummaryCards() {
+  const activeUser = useStore((s) => s.activeUser);
+
+  const [transactions, setTransactions] = useState<ApiTransaction[]>([]);
+  const [loading, setLoading] = useState(false);
+
+  async function fetchTransactions() {
+    setLoading(true);
+    try {
+      const res = await fetch(`/api/transactions?user=${encodeURIComponent(activeUser)}`, {
+        cache: "no-store",
+      });
+      if (!res.ok) return;
+      const data = (await res.json()) as { transactions: ApiTransaction[] };
+      setTransactions(data.transactions ?? []);
+    } catch {
+      // keep previous state
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    fetchTransactions();
+  }, [activeUser]);
+
+  const summary = useMemo<Summary>(() => {
+    const totalIncome = transactions
+      .filter((t) => t.amount > 0)
+      .reduce((sum, t) => sum + t.amount, 0);
+    const totalExpense = transactions
+      .filter((t) => t.amount < 0)
+      .reduce((sum, t) => sum + Math.abs(t.amount), 0);
+    const balance = totalIncome - totalExpense;
+    return { totalIncome, totalExpense, balance };
+  }, [transactions]);
+
+  const incomePercent = Math.min(Math.round((summary.totalIncome / 170_000_000) * 100), 100);
 
   const cards = [
     {
       title: "Total Saldo",
-      amount: formatRupiah(balance),
-      trend: { value: "+2.4%", direction: "up" as const, label: "Dari bulan lalu" },
+      amount: formatRupiah(summary.balance),
+      trend: { value: loading ? "..." : `${summary.totalIncome > 0 || summary.totalExpense > 0 ? "Aktif" : "0%"}`, direction: "up" as const, label: "Dari bulan ini" },
       icon: <Wallet className="h-5 w-5 text-primary" />,
       iconBg: "bg-primary/10",
       decorativeCircle: true,
     },
     {
       title: "Pemasukan Bulanan",
-      amount: formatRupiah(totalIncome),
+      amount: formatRupiah(summary.totalIncome),
       icon: <TrendingUp className="h-5 w-5 text-secondary" />,
       iconBg: "bg-secondary/10",
-      progress: { current: totalIncome, target: 170_000_000, percentage: Math.min(Math.round((totalIncome / 170_000_000) * 100), 100) },
-      trend: { value: `${Math.min(Math.round((totalIncome / 170_000_000) * 100), 100)}%`, direction: "up" as const, label: "dari target tercapai" },
+      progress: { current: summary.totalIncome, target: 170_000_000, percentage: incomePercent },
+      trend: { value: `${incomePercent}%`, direction: "up" as const, label: "dari target tercapai" },
     },
     {
       title: "Pengeluaran Bulanan",
-      amount: formatRupiah(totalExpense),
+      amount: formatRupiah(summary.totalExpense),
       danger: true,
       icon: <TrendingDown className="h-5 w-5 text-destructive" />,
       iconBg: "bg-destructive/10",
-      trend: { value: "+15%", direction: "up" as const, label: "15% lebih tinggi dari biasanya" },
+      trend: { value: loading ? "..." : `${summary.totalExpense > 0 ? "Ada transaksi" : "0%"}`, direction: "up" as const, label: summary.totalExpense > 0 ? "Perlu diawasi" : "Belum ada pengeluaran" },
     },
   ];
 

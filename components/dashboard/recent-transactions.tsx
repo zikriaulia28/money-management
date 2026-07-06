@@ -1,9 +1,10 @@
 "use client";
 
+import { useEffect, useMemo, useState } from "react";
 import {
   Table,
   TableBody,
-  TableCell,
+ TableCell,
   TableHead,
   TableHeader,
   TableRow,
@@ -12,6 +13,15 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
 import { useStore, formatRupiah } from "@/lib/store";
+
+type ApiTransaction = {
+  id: string;
+  name: string;
+  category: string;
+  date: string;
+  amount: number;
+  user: "Suami" | "Istri";
+};
 
 const categoryColors: Record<string, string> = {
   Kebutuhan: "bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300",
@@ -40,8 +50,35 @@ const iconBg: Record<string, string> = {
 };
 
 export function RecentTransactions() {
-  const transactions = useStore((s) => s.transactions);
-  const recent = transactions.slice(0, 5);
+  const activeUser = useStore((s) => s.activeUser);
+
+  const [transactions, setTransactions] = useState<ApiTransaction[]>([]);
+  const [loading, setLoading] = useState(false);
+
+  async function fetchTransactions() {
+    setLoading(true);
+    try {
+      const res = await fetch(`/api/transactions?user=${encodeURIComponent(activeUser)}`, {
+        cache: "no-store",
+      });
+      if (!res.ok) return;
+      const data = (await res.json()) as { transactions: ApiTransaction[] };
+      setTransactions(data.transactions ?? []);
+    } catch {
+      // keep previous state
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    fetchTransactions();
+  }, [activeUser]);
+
+  const recent = useMemo(() => {
+    const sorted = [...transactions].sort((a, b) => (a.date > b.date ? -1 : a.date < b.date ? 1 : 0));
+    return sorted.slice(0, 5);
+  }, [transactions]);
 
   return (
     <div className="xl:col-span-3">
@@ -73,58 +110,60 @@ export function RecentTransactions() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {recent.length === 0 ? (
+              {loading ? (
                 <TableRow>
-                  <TableCell
-                    colSpan={4}
-                    className="text-center py-12 text-muted-foreground"
-                  >
-                    Belum ada transaksi
+                  <TableCell colSpan={4} className="text-center py-12 text-muted-foreground">
+                    Memuat transaksi...
                   </TableCell>
                 </TableRow>
-              ) : (
-                recent.map((tx) => {
-                  const Icon = tx.icon;
-                  return (
-                    <TableRow
-                      key={tx.id}
-                      className="hover:bg-muted/30 transition-colors"
-                    >
-                      <TableCell>
-                        <div className="flex items-center gap-3">
-                          <div
-                            className={`w-9 h-9 rounded-full ${iconBg[tx.category] || "bg-muted"} flex items-center justify-center`}
-                          >
-                            <Icon
-                              className={`h-4 w-4 ${iconColors[tx.category] || "text-muted-foreground"}`}
-                            />
-                          </div>
-                          <span className="text-sm font-medium">{tx.name}</span>
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <Badge
-                          variant="secondary"
-                          className={`text-[10px] font-bold uppercase px-2 py-0.5 ${categoryColors[tx.category] || ""}`}
-                        >
-                          {tx.category}
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="text-sm text-muted-foreground">
-                        {tx.date}
-                      </TableCell>
-                      <TableCell
-                        className={`text-right text-sm font-semibold ${tx.amount >= 0 ? "text-secondary" : "text-foreground"}`}
-                      >
-                        <span className="whitespace-nowrap">
-                          {tx.amount >= 0 ? "+" : ""}
-                          {formatRupiah(tx.amount)}
-                        </span>
+              ) : recent.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={4} className="text-center py-12 text-muted-foreground">
+                        Belum ada transaksi
                       </TableCell>
                     </TableRow>
-                  );
-                })
-              )}
+                  ) : (
+                    recent.map((tx) => {
+                      const rowColor = iconColors[tx.category];
+                      const rowBg = iconBg[tx.category];
+                      return (
+                        <TableRow
+                          key={tx.id}
+                          className="hover:bg-muted/30 transition-colors"
+                        >
+                          <TableCell>
+                            <div className="flex items-center gap-3">
+                              <div
+                                className={`w-9 h-9 rounded-full ${rowBg || "bg-muted"} flex items-center justify-center`}
+                              >
+                                <span className={`h-4 w-4 inline-block rounded-full ${tx.amount >= 0 ? "bg-secondary" : "bg-destructive"}`} />
+                              </div>
+                              <span className="text-sm font-medium">{tx.name}</span>
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            <Badge
+                              variant="secondary"
+                              className={`text-[10px] font-bold uppercase px-2 py-0.5 ${categoryColors[tx.category] || ""}`}
+                            >
+                              {tx.category}
+                            </Badge>
+                          </TableCell>
+                          <TableCell className="text-sm text-muted-foreground">
+                            {tx.date}
+                          </TableCell>
+                          <TableCell
+                            className={`text-right text-sm font-semibold ${tx.amount >= 0 ? "text-secondary" : "text-foreground"}`}
+                          >
+                            <span className="whitespace-nowrap">
+                              {tx.amount >= 0 ? "+" : ""}
+                              {formatRupiah(tx.amount)}
+                            </span>
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })
+                  )}
             </TableBody>
           </Table>
         </div>
