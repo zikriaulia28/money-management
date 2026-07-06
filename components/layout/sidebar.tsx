@@ -10,15 +10,14 @@ import {
   CreditCard,
   Plus,
 } from "lucide-react";
-import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
 const navItems = [
-  { href: "/", label: "Dashboard", icon: LayoutDashboard },
-  { href: "/transactions", label: "Transaksi", icon: Receipt },
-  { href: "/budgets", label: "Anggaran", icon: Wallet },
-  { href: "/savings", label: "Tabungan", icon: PiggyBank },
-  { href: "/debts", label: "Hutang", icon: CreditCard },
+  { href: "/", label: "Dashboard", shortLabel: "Beranda", icon: LayoutDashboard },
+  { href: "/transactions", label: "Transaksi", shortLabel: "Trans", icon: Receipt },
+  { href: "/budgets", label: "Anggaran", shortLabel: "Budget", icon: Wallet },
+  { href: "/savings", label: "Tabungan", shortLabel: "Simpan", icon: PiggyBank },
+  { href: "/debts", label: "Hutang", shortLabel: "Hutang", icon: CreditCard },
 ];
 
 export function Sidebar() {
@@ -28,11 +27,13 @@ export function Sidebar() {
     <>
       {/* Desktop Sidebar */}
       <aside className="hidden lg:flex flex-col fixed left-0 top-16 h-[calc(100vh-4rem)] w-64 border-r border-border bg-card z-30">
+        {/* Branding */}
         <div className="flex flex-col items-center pt-8 pb-6 px-4">
-          <div className="w-12 h-12 rounded-xl bg-primary flex items-center justify-center mb-3 shadow-md">
-            <Wallet className="h-6 w-6 text-primary-foreground" />
+          <div className="w-16 h-16 rounded-xl bg-primary flex items-center justify-center mb-4 shadow-lg">
+            <Wallet className="h-8 w-8 text-primary-foreground" />
           </div>
-          <p className="text-sm text-muted-foreground">Penasihat Keuangan</p>
+          <h2 className="text-lg font-bold text-primary">ProsperWealth</h2>
+          <p className="text-sm text-muted-foreground mt-0.5">Penasihat Keuangan</p>
         </div>
 
         <nav className="flex-1 px-3 space-y-1">
@@ -46,7 +47,7 @@ export function Sidebar() {
                 className={cn(
                   "flex items-center gap-3 px-4 py-2.5 rounded-lg transition-all duration-150 text-sm font-medium",
                   isActive
-                    ? "bg-primary/10 text-primary"
+                    ? "bg-primary/10 text-primary font-bold translate-x-0.5"
                     : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
                 )}
               >
@@ -56,13 +57,6 @@ export function Sidebar() {
             );
           })}
         </nav>
-
-        <div className="p-4 border-t border-border">
-          <Button className="w-full gap-2" size="sm">
-            <Plus className="h-4 w-4" />
-            Transaksi Baru
-          </Button>
-        </div>
       </aside>
 
       {/* Mobile Bottom Nav */}
@@ -83,7 +77,7 @@ export function Sidebar() {
                 )}
               >
                 <Icon className="h-5 w-5" />
-                <span className="text-[10px] font-medium">{item.label}</span>
+                <span className="text-[10px] font-medium">{item.shortLabel}</span>
               </Link>
             );
           })}
@@ -91,9 +85,11 @@ export function Sidebar() {
       </nav>
 
       {/* Mobile FAB */}
-      <button className="lg:hidden fixed right-5 bottom-20 w-12 h-12 bg-primary text-primary-foreground rounded-full shadow-xl flex items-center justify-center z-50 active:scale-90 transition-transform hover:opacity-90">
-        <Plus className="h-6 w-6" />
-      </button>
+      <Link href="/transactions">
+        <button className="lg:hidden fixed right-5 bottom-20 w-12 h-12 bg-primary text-primary-foreground rounded-full shadow-xl flex items-center justify-center z-50 active:scale-90 transition-transform hover:opacity-90">
+          <Plus className="h-6 w-6" />
+        </button>
+      </Link>
     </>
   );
 }

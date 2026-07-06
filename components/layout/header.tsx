@@ -1,10 +1,14 @@
 "use client";
 
-import { Bell, Search, HelpCircle, Wallet } from "lucide-react";
+import { Bell, HelpCircle, Wallet, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { useStore } from "@/lib/store";
 
 export function Header() {
+  const activeUser = useStore((s) => s.activeUser);
+  const setActiveUser = useStore((s) => s.setActiveUser);
+
   return (
     <header className="sticky top-0 z-50 w-full h-16 bg-card/80 backdrop-blur-md border-b border-border">
       <div className="flex items-center justify-between h-full px-4 md:px-6 lg:px-8">
@@ -15,7 +19,8 @@ export function Header() {
           </span>
         </div>
 
-        <div className="hidden md:flex items-center bg-muted rounded-lg px-3 py-1.5 border border-border max-w-xs w-full">
+        {/* Search bar */}
+        <div className="hidden md:flex items-center bg-muted rounded-full px-4 py-1.5 border border-border max-w-xs w-full">
           <Search className="h-4 w-4 text-muted-foreground mr-2" />
           <Input
             placeholder="Cari transaksi..."
@@ -24,17 +29,44 @@ export function Header() {
         </div>
 
         <div className="flex items-center gap-2">
+          {/* Active user selector */}
+          <div className="flex items-center gap-1 bg-muted rounded-full p-0.5 border border-border">
+            <button
+              onClick={() => setActiveUser("Suami")}
+              className={`px-3 py-1 rounded-full text-xs font-medium transition-colors ${
+                activeUser === "Suami"
+                  ? "bg-primary text-primary-foreground shadow-sm"
+                  : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              Suami
+            </button>
+            <button
+              onClick={() => setActiveUser("Istri")}
+              className={`px-3 py-1 rounded-full text-xs font-medium transition-colors ${
+                activeUser === "Istri"
+                  ? "bg-primary text-primary-foreground shadow-sm"
+                  : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              Istri
+            </button>
+          </div>
+
           <Button variant="ghost" size="icon" className="text-muted-foreground">
             <Bell className="h-5 w-5" />
           </Button>
-          <Button variant="ghost" size="icon" className="text-muted-foreground hidden sm:flex">
+          <Button
+            variant="ghost"
+            size="icon"
+            className="text-muted-foreground hidden sm:flex"
+          >
             <HelpCircle className="h-5 w-5" />
           </Button>
-          <Button className="hidden lg:flex gap-2" size="sm">
-            Tambah Transaksi
-          </Button>
-          <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center ml-1">
-            <span className="text-xs font-semibold text-primary">ZA</span>
+          <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center ml-1 ring-2 ring-primary/10">
+            <span className="text-xs font-semibold text-primary">
+              {activeUser === "Suami" ? "S" : "I"}
+            </span>
           </div>
         </div>
       </div>

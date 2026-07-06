@@ -13,6 +13,14 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import {
   Search,
   ShoppingCart,
   Briefcase,
@@ -22,131 +30,18 @@ import {
   Home,
   Heart,
   Plus,
-  ChevronLeft,
-  ChevronRight,
+  X,
+  ChevronDown,
 } from "lucide-react";
-
-// ── Mock Data ──────────────────────────────────────────────────
-interface Transaction {
-  id: string;
-  name: string;
-  category: string;
-  date: string;
-  amount: number;
-  user: "Anda" | "Pasangan";
-  icon: React.ElementType;
-}
-
-const transactions: Transaction[] = [
-  {
-    id: "1",
-    name: "Whole Foods Market",
-    category: "Kebutuhan",
-    date: "24 Okt 2023",
-    amount: -1867500,
-    user: "Anda",
-    icon: ShoppingCart,
-  },
-  {
-    id: "2",
-    name: "Gaji Bulanan",
-    category: "Pendapatan",
-    date: "23 Okt 2023",
-    amount: 78000000,
-    user: "Anda",
-    icon: Briefcase,
-  },
-  {
-    id: "3",
-    name: "Langganan Netflix",
-    category: "Hiburan",
-    date: "22 Okt 2023",
-    amount: -239850,
-    user: "Pasangan",
-    icon: Film,
-  },
-  {
-    id: "4",
-    name: "SPBU Shell",
-    category: "Transportasi",
-    date: "21 Okt 2023",
-    amount: -975000,
-    user: "Anda",
-    icon: Car,
-  },
-  {
-    id: "5",
-    name: "The Green Bistro",
-    category: "Kuliner",
-    date: "20 Okt 2023",
-    amount: -723000,
-    user: "Pasangan",
-    icon: Utensils,
-  },
-  {
-    id: "6",
-    name: "Listrik Bulanan",
-    category: "Kebutuhan",
-    date: "18 Okt 2023",
-    amount: -1452000,
-    user: "Anda",
-    icon: Home,
-  },
-  {
-    id: "7",
-    name: "BPJS Kesehatan",
-    category: "Kebutuhan",
-    date: "15 Okt 2023",
-    amount: -350000,
-    user: "Anda",
-    icon: Heart,
-  },
-  {
-    id: "8",
-    name: "Freelance Project",
-    category: "Pendapatan",
-    date: "12 Okt 2023",
-    amount: 15000000,
-    user: "Pasangan",
-    icon: Briefcase,
-  },
-  {
-    id: "9",
-    name: "Gojek Harian",
-    category: "Transportasi",
-    date: "10 Okt 2023",
-    amount: -185000,
-    user: "Pasangan",
-    icon: Car,
-  },
-  {
-    id: "10",
-    name: "Makan Malam Solaria",
-    category: "Kuliner",
-    date: "8 Okt 2023",
-    amount: -456000,
-    user: "Anda",
-    icon: Utensils,
-  },
-  {
-    id: "11",
-    name: "Gaji Pasangan",
-    category: "Pendapatan",
-    date: "25 Sep 2023",
-    amount: 45000000,
-    user: "Pasangan",
-    icon: Briefcase,
-  },
-  {
-    id: "12",
-    name: "Beli Token Listrik",
-    category: "Kebutuhan",
-    date: "20 Sep 2023",
-    amount: -1002000,
-    user: "Anda",
-    icon: Home,
-  },
-];
+import type { LucideIcon } from "lucide-react";
+import { useStore, formatRupiah, type Transaction } from "@/lib/store";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 const CATEGORIES = [
   "Semua Kategori",
@@ -160,15 +55,6 @@ const CATEGORIES = [
 const PERIODS = ["Bulan Ini", "Bulan Lalu", "3 Bulan", "Tahun Ini"];
 
 const ITEMS_PER_PAGE = 6;
-
-// ── Helpers ─────────────────────────────────────────────────────
-const formatRupiah = (value: number) =>
-  new Intl.NumberFormat("id-ID", {
-    style: "currency",
-    currency: "IDR",
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 0,
-  }).format(Math.abs(value));
 
 const categoryStyles: Record<string, string> = {
   Kebutuhan: "bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300",
@@ -198,12 +84,33 @@ const iconBg: Record<string, string> = {
   Kuliner: "bg-amber-500/10",
 };
 
-// ── Page Component ──────────────────────────────────────────────
+const categoryIcons: Record<string, LucideIcon> = {
+  Kebutuhan: ShoppingCart,
+  Pendapatan: Briefcase,
+  Hiburan: Film,
+  Transportasi: Car,
+  Kuliner: Utensils,
+};
+
 export default function TransactionsPage() {
+  const transactions = useStore((s) => s.transactions);
+  const addTransaction = useStore((s) => s.addTransaction);
+
+  // Filter state (UI only, not in store)
   const [searchQuery, setSearchQuery] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("Semua Kategori");
   const [periodFilter, setPeriodFilter] = useState("Bulan Ini");
   const [currentPage, setCurrentPage] = useState(1);
+
+  // Dialog state
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [newName, setNewName] = useState("");
+  const [newCategory, setNewCategory] = useState("Kebutuhan");
+  const [newAmount, setNewAmount] = useState("");
+  const [newType, setNewType] = useState<"pengeluaran" | "pemasukan">(
+    "pengeluaran",
+  );
+  const [newUser, setNewUser] = useState<"Suami" | "Istri">("Suami");
 
   // Filter & paginate
   const filtered = useMemo(() => {
@@ -214,7 +121,7 @@ export default function TransactionsPage() {
       result = result.filter(
         (tx) =>
           tx.name.toLowerCase().includes(q) ||
-          tx.category.toLowerCase().includes(q)
+          tx.category.toLowerCase().includes(q),
       );
     }
 
@@ -222,16 +129,94 @@ export default function TransactionsPage() {
       result = result.filter((tx) => tx.category === categoryFilter);
     }
 
-    // Period filter — simple mock: just show all since data is sample
     return result;
-  }, [searchQuery, categoryFilter, periodFilter]);
+  }, [searchQuery, categoryFilter, transactions]);
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / ITEMS_PER_PAGE));
   const safePage = Math.min(currentPage, totalPages);
   const paginated = filtered.slice(
     (safePage - 1) * ITEMS_PER_PAGE,
-    safePage * ITEMS_PER_PAGE
+    safePage * ITEMS_PER_PAGE,
   );
+
+  function resetSearch() {
+    setSearchQuery("");
+    setCategoryFilter("Semua Kategori");
+    setPeriodFilter("Bulan Ini");
+    setCurrentPage(1);
+  }
+
+  function handleAddTransaction() {
+    if (!newName.trim() || !newAmount.trim()) return;
+
+    const amountValue = parseInt(newAmount.replace(/\./g, ""), 10);
+    if (isNaN(amountValue) || amountValue <= 0) return;
+
+    const finalAmount = newType === "pengeluaran" ? -amountValue : amountValue;
+    const now = new Date();
+    const months = [
+      "Jan",
+      "Feb",
+      "Mar",
+      "Apr",
+      "Mei",
+      "Jun",
+      "Jul",
+      "Agu",
+      "Sep",
+      "Okt",
+      "Nov",
+      "Des",
+    ];
+    const dateStr = `${now.getDate()} ${months[now.getMonth()]} ${now.getFullYear()}`;
+
+    const Icon = categoryIcons[newCategory] || ShoppingCart;
+
+    const newTx: Transaction = {
+      id: String(Date.now()),
+      name: newName.trim(),
+      category: newCategory,
+      date: dateStr,
+      amount: finalAmount,
+      user: newUser,
+      icon: Icon,
+    };
+
+    addTransaction(newTx);
+    setDialogOpen(false);
+    setNewName("");
+    setNewAmount("");
+    setNewCategory("Kebutuhan");
+    setNewType("pengeluaran");
+    setCurrentPage(1);
+  }
+
+  // Generate page numbers for pagination
+  const getPageNumbers = () => {
+    const pages: (number | "ellipsis")[] = [];
+    const maxVisible = 5;
+
+    if (totalPages <= maxVisible) {
+      for (let i = 1; i <= totalPages; i++) pages.push(i);
+    } else {
+      if (safePage <= 3) {
+        for (let i = 1; i <= 4; i++) pages.push(i);
+        pages.push("ellipsis");
+        pages.push(totalPages);
+      } else if (safePage >= totalPages - 2) {
+        pages.push(1);
+        pages.push("ellipsis");
+        for (let i = totalPages - 3; i <= totalPages; i++) pages.push(i);
+      } else {
+        pages.push(1);
+        pages.push("ellipsis");
+        for (let i = safePage - 1; i <= safePage + 1; i++) pages.push(i);
+        pages.push("ellipsis");
+        pages.push(totalPages);
+      }
+    }
+    return pages;
+  };
 
   return (
     <div className="space-y-6">
@@ -245,7 +230,7 @@ export default function TransactionsPage() {
             Kelola dan pantau semua transaksi keuangan keluarga
           </p>
         </div>
-        <Button className="gap-2">
+        <Button className="gap-2" onClick={() => setDialogOpen(true)}>
           <Plus className="h-4 w-4" />
           Tambah Transaksi
         </Button>
@@ -272,35 +257,49 @@ export default function TransactionsPage() {
             </div>
 
             {/* Category Filter */}
-            <select
+            <Select
               value={categoryFilter}
-              onChange={(e) => {
-                setCategoryFilter(e.target.value);
+              onValueChange={(value) => {
+                if (!value) return;
+                setCategoryFilter(value);
                 setCurrentPage(1);
               }}
-              className="h-9 rounded-lg border border-border bg-background px-3 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
             >
-              {CATEGORIES.map((cat) => (
-                <option key={cat} value={cat}>
-                  {cat}
-                </option>
-              ))}
-            </select>
+              <SelectTrigger className="h-9 min-w-[150px] text-sm">
+                <SelectValue placeholder="Semua Kategori" />
+              </SelectTrigger>
+              <SelectContent>
+                {CATEGORIES.map((cat) => (
+                  <SelectItem key={cat} value={cat}>
+                    {cat}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
 
             {/* Period Filter */}
-            <select
+            <Select
               value={periodFilter}
-              onChange={(e) => setPeriodFilter(e.target.value)}
-              className="h-9 rounded-lg border border-border bg-background px-3 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+              onValueChange={(value) => value && setPeriodFilter(value)}
             >
-              {PERIODS.map((p) => (
-                <option key={p} value={p}>
-                  {p}
-                </option>
-              ))}
-            </select>
+              <SelectTrigger className="h-9 min-w-[130px] text-sm">
+                <SelectValue placeholder="Bulan Ini" />
+              </SelectTrigger>
+              <SelectContent>
+                {PERIODS.map((p) => (
+                  <SelectItem key={p} value={p}>
+                    {p}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
 
-            <Button variant="secondary" size="sm" className="h-9">
+            <Button
+              variant="secondary"
+              size="sm"
+              className="h-9"
+              onClick={resetSearch}
+            >
               Filter
             </Button>
           </div>
@@ -355,7 +354,8 @@ export default function TransactionsPage() {
                           >
                             <Icon
                               className={`h-4 w-4 ${
-                                iconColors[tx.category] || "text-muted-foreground"
+                                iconColors[tx.category] ||
+                                "text-muted-foreground"
                               }`}
                             />
                           </div>
@@ -381,12 +381,12 @@ export default function TransactionsPage() {
                         <div className="flex items-center gap-2">
                           <div
                             className={`w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold ${
-                              tx.user === "Anda"
+                              tx.user === "Suami"
                                 ? "bg-primary/10 text-primary"
                                 : "bg-orange-500/10 text-orange-500"
                             }`}
                           >
-                            {tx.user === "Anda" ? "A" : "P"}
+                            {tx.user === "Suami" ? "S" : "I"}
                           </div>
                           <span className="text-sm text-muted-foreground">
                             {tx.user}
@@ -399,7 +399,7 @@ export default function TransactionsPage() {
                         }`}
                       >
                         <span className="whitespace-nowrap">
-                          {tx.amount >= 0 ? "+" : "-"}
+                          {tx.amount >= 0 ? "+" : ""}
                           {formatRupiah(tx.amount)}
                         </span>
                       </TableCell>
@@ -414,54 +414,181 @@ export default function TransactionsPage() {
         {/* Pagination */}
         <div className="p-4 border-t border-border flex flex-wrap items-center justify-between gap-3">
           <span className="text-sm text-muted-foreground">
-            Menampilkan {paginated.length > 0 ? (safePage - 1) * ITEMS_PER_PAGE + 1 : 0}
+            Menampilkan{" "}
+            {paginated.length > 0 ? (safePage - 1) * ITEMS_PER_PAGE + 1 : 0}
             {" — "}
             {Math.min(safePage * ITEMS_PER_PAGE, filtered.length)} dari{" "}
             {filtered.length} transaksi
           </span>
           <div className="flex items-center gap-1.5">
-            <Button
-              variant="outline"
-              size="icon"
-              className="h-8 w-8"
+            <button
+              className="px-3 py-1 border border-border rounded-lg text-xs font-medium text-muted-foreground hover:bg-accent transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
               disabled={safePage <= 1}
               onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
             >
-              <ChevronLeft className="h-4 w-4" />
-            </Button>
-            {Array.from({ length: Math.min(totalPages, 5) }, (_, i) => {
-              const start = Math.max(
-                1,
-                Math.min(safePage - 2, totalPages - 4)
-              );
-              const pageNum = start + i;
-              if (pageNum > totalPages) return null;
-              return (
-                <Button
-                  key={pageNum}
-                  variant={safePage === pageNum ? "default" : "outline"}
-                  size="icon"
-                  className="h-8 w-8 text-xs"
-                  onClick={() => setCurrentPage(pageNum)}
+              Previous
+            </button>
+            {getPageNumbers().map((page, idx) =>
+              page === "ellipsis" ? (
+                <span
+                  key={`e-${idx}`}
+                  className="px-1 text-muted-foreground text-xs"
                 >
-                  {pageNum}
-                </Button>
-              );
-            })}
-            <Button
-              variant="outline"
-              size="icon"
-              className="h-8 w-8"
+                  ...
+                </span>
+              ) : (
+                <button
+                  key={page}
+                  className={`px-3 py-1 rounded-lg text-xs font-medium transition-colors ${
+                    safePage === page
+                      ? "bg-primary text-primary-foreground shadow-sm"
+                      : "border border-border text-muted-foreground hover:bg-accent"
+                  }`}
+                  onClick={() => setCurrentPage(page)}
+                >
+                  {page}
+                </button>
+              ),
+            )}
+            <button
+              className="px-3 py-1 border border-border rounded-lg text-xs font-medium text-muted-foreground hover:bg-accent transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
               disabled={safePage >= totalPages}
-              onClick={() =>
-                setCurrentPage((p) => Math.min(totalPages, p + 1))
-              }
+              onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
             >
-              <ChevronRight className="h-4 w-4" />
-            </Button>
+              Next
+            </button>
           </div>
         </div>
       </div>
+
+      {/* Tambah Transaksi Dialog */}
+      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle>Tambah Transaksi</DialogTitle>
+            <DialogDescription>
+              Catat pemasukan atau pengeluaran baru
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="grid gap-4 py-4">
+            <div className="grid gap-2">
+              <label className="text-sm font-medium">Nama Transaksi</label>
+              <Input
+                placeholder="Mis: Gaji Bulanan, Makan Siang..."
+                value={newName}
+                onChange={(e) => setNewName(e.target.value)}
+              />
+            </div>
+
+            <div className="grid gap-2">
+              <label className="text-sm font-medium">Tipe</label>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => setNewType("pengeluaran")}
+                  className={`flex-1 py-2 rounded-lg text-sm font-medium transition-colors ${
+                    newType === "pengeluaran"
+                      ? "bg-destructive/10 text-destructive border border-destructive/30"
+                      : "bg-muted text-muted-foreground border border-border"
+                  }`}
+                >
+                  Pengeluaran
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setNewType("pemasukan")}
+                  className={`flex-1 py-2 rounded-lg text-sm font-medium transition-colors ${
+                    newType === "pemasukan"
+                      ? "bg-secondary/10 text-secondary border border-secondary/30"
+                      : "bg-muted text-muted-foreground border border-border"
+                  }`}
+                >
+                  Pemasukan
+                </button>
+              </div>
+            </div>
+
+            <div className="grid gap-2">
+              <label className="text-sm font-medium">Kategori</label>
+              <Select
+                value={newCategory}
+                onValueChange={(value) => value && setNewCategory(value)}
+              >
+                <SelectTrigger className="h-9 w-full text-sm">
+                  <SelectValue placeholder="Pilih kategori" />
+                </SelectTrigger>
+                <SelectContent>
+                  {CATEGORIES.filter((c) => c !== "Semua Kategori").map((cat) => (
+                    <SelectItem key={cat} value={cat}>
+                      {cat}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="grid gap-2">
+              <label className="text-sm font-medium">Jumlah (Rp)</label>
+              <Input
+                type="text"
+                inputMode="numeric"
+                placeholder="1.000.000"
+                value={newAmount}
+                onChange={(e) => {
+                  const raw = e.target.value.replace(/[^0-9]/g, "");
+                  if (raw === "") {
+                    setNewAmount("");
+                  } else {
+                    const num = parseInt(raw, 10);
+                    setNewAmount(new Intl.NumberFormat("id-ID").format(num));
+                  }
+                }}
+              />
+            </div>
+
+            <div className="grid gap-2">
+              <label className="text-sm font-medium">Dicatat oleh</label>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => setNewUser("Suami")}
+                  className={`flex-1 py-2 rounded-lg text-sm font-medium transition-colors ${
+                    newUser === "Suami"
+                      ? "bg-primary/10 text-primary border border-primary/30"
+                      : "bg-muted text-muted-foreground border border-border"
+                  }`}
+                >
+                  Suami
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setNewUser("Istri")}
+                  className={`flex-1 py-2 rounded-lg text-sm font-medium transition-colors ${
+                    newUser === "Istri"
+                      ? "bg-primary/10 text-primary border border-primary/30"
+                      : "bg-muted text-muted-foreground border border-border"
+                  }`}
+                >
+                  Istri
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDialogOpen(false)}>
+              Batal
+            </Button>
+            <Button
+              onClick={handleAddTransaction}
+              disabled={!newName.trim() || !newAmount.trim()}
+            >
+              Simpan Transaksi
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

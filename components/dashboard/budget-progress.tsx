@@ -1,85 +1,60 @@
 "use client";
 
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-  CardFooter,
-} from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import Link from "next/link";
+import { useStore, formatRupiah } from "@/lib/store";
 
-const budgets = [
-  {
-    name: "Kebutuhan Pokok",
-    spent: 6750000,
-    total: 9000000,
-    percentage: 75,
-    color: "bg-primary",
-  },
-  {
-    name: "Hiburan",
-    spent: 2700000,
-    total: 3000000,
-    percentage: 90,
-    color: "bg-orange-500",
-    warning: true,
-  },
-  {
-    name: "Transportasi",
-    spent: 1275000,
-    total: 2250000,
-    percentage: 56,
-    color: "bg-secondary",
-  },
-];
-
-const formatRupiah = (value: number) =>
-  new Intl.NumberFormat("id-ID", {
-    style: "currency",
-    currency: "IDR",
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 0,
-  }).format(value);
+const barBg: Record<string, string> = {
+  primary: "bg-primary",
+  tertiary: "bg-orange-500",
+  secondary: "bg-secondary",
+  error: "bg-destructive",
+};
 
 export function BudgetProgress() {
+  const budgets = useStore((s) => s.budgets);
+  const topBudgets = budgets.slice(0, 3);
+
   return (
     <Card className="flex flex-col">
       <CardHeader>
         <CardTitle className="text-lg font-semibold">Anggaran Aktif</CardTitle>
       </CardHeader>
       <CardContent className="flex-1 space-y-5">
-        {budgets.map((b) => (
-          <div key={b.name} className="space-y-1.5">
-            <div className="flex justify-between items-center">
-              <span className="text-sm font-medium">{b.name}</span>
-              <span className="text-xs text-muted-foreground">
-                {formatRupiah(b.spent)} / {formatRupiah(b.total)}
-              </span>
-            </div>
-            <div className="relative">
-              <Progress
-                value={b.percentage}
-                className={cn(
-                  "h-2.5",
-                  b.warning &&
-                    "[&>div]:bg-orange-500 [&>div]:dark:bg-orange-500"
-                )}
-              />
-            </div>
-          </div>
-        ))}
+        {topBudgets.length === 0 ? (
+          <p className="text-sm text-muted-foreground text-center py-6">Belum ada anggaran</p>
+        ) : (
+          topBudgets.map((b) => {
+            const percent = Math.min(Math.round((b.spent / b.budget) * 100), 100);
+            const warning = b.spent > b.budget;
+            return (
+              <div key={b.id} className="space-y-1.5">
+                <div className="flex justify-between items-center">
+                  <span className="text-sm font-medium">{b.category}</span>
+                  <span className="text-xs text-muted-foreground">
+                    {formatRupiah(b.spent)} / {formatRupiah(b.budget)}
+                  </span>
+                </div>
+                <div className="relative">
+                  <Progress
+                    value={percent}
+                    className={cn("h-2.5", warning && "[&>div]:bg-orange-500 [&>div]:dark:bg-orange-500")}
+                  />
+                </div>
+              </div>
+            );
+          })
+        )}
       </CardContent>
       <CardFooter>
-        <Button
-          variant="outline"
-          className="w-full text-sm text-muted-foreground"
-        >
-          Lihat Semua Anggaran
-        </Button>
+        <Link href="/budgets" className="w-full">
+          <Button variant="outline" className="w-full text-sm text-muted-foreground">
+            Lihat Semua Anggaran
+          </Button>
+        </Link>
       </CardFooter>
     </Card>
   );
