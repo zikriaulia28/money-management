@@ -82,7 +82,7 @@ export default function DebtsPage() {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch(`/api/debts?userId=${encodeURIComponent(userId)}`, { cache: "no-store" });
+      const res = await fetch(`/api/debts`, { cache: "no-store" });
       if (!res.ok) {
         const text = await res.text();
         throw new Error(text || `Gagal memuat cicilan: ${res.status}`);
@@ -98,7 +98,7 @@ export default function DebtsPage() {
 
   useEffect(() => {
     fetchDebts();
-  }, [userId]);
+  }, []);
 
   const totals = useMemo(() => {
     return debts.reduce(

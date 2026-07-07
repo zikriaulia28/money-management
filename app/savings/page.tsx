@@ -33,6 +33,15 @@ function formatDeadline(dateStr?: string | null): string {
   return `${months[d.getMonth()]} ${d.getFullYear()}`;
 }
 
+function getDeadlineMonths(deadline: string): number {
+  const d = new Date(deadline);
+  if (isNaN(d.getTime())) return 6;
+  const now = new Date();
+  const targetDate = new Date(d.getFullYear(), d.getMonth(), 1);
+  const diff = (targetDate.getFullYear() - now.getFullYear()) * 12 + (targetDate.getMonth() - now.getMonth());
+  return Math.max(0, diff);
+}
+
 const monthMap: Record<string, number> = {
   Jan: 0, Feb: 1, Mar: 2, Apr: 3, Mei: 4, Jun: 5,
   Jul: 6, Agu: 7, Sep: 8, Okt: 9, Nov: 10, Des: 11,
@@ -123,8 +132,7 @@ export default function SavingsPage() {
     setLoading(true);
     setError(null);
     try {
-      const userId = `user-${activeUser.toLowerCase()}`;
-      const res = await fetch(`/api/goals?userId=${encodeURIComponent(userId)}`, { cache: "no-store" });
+      const res = await fetch(`/api/goals`, { cache: "no-store" });
       if (!res.ok) {
         const text = await res.text();
         throw new Error(text || `Gagal memuat tabungan: ${res.status}`);
@@ -140,7 +148,7 @@ export default function SavingsPage() {
 
   useEffect(() => {
     fetchGoals();
-  }, [activeUser]);
+  }, []);
 
   async function handleAddGoal() {
     if (!newName.trim() || !newTarget.trim()) return;
@@ -205,18 +213,6 @@ export default function SavingsPage() {
     } finally {
       setSubmitting(false);
     }
-  }
-
-  function getDeadlineMonths(deadline: string): number {
-    const parts = deadline.split(" ");
-    if (parts.length !== 2) return 6;
-    const month = monthMap[parts[0]];
-    const year = parseInt(parts[1], 10);
-    if (month === undefined || Number.isNaN(year)) return 6;
-    const now = new Date();
-    const targetDate = new Date(year, month, 1);
-    const diff = (targetDate.getFullYear() - now.getFullYear()) * 12 + (targetDate.getMonth() - now.getMonth());
-    return Math.max(0, diff);
   }
 
   const stylePalette = useMemo(() => {
@@ -325,43 +321,23 @@ export default function SavingsPage() {
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setDialogOpen(false)}>Batal</Button>
-            <Button onClick={handleAddGoal} disabled={submitting || !newName.trim() || !newTarget.trim()}>
-              {submitting ? "Menyimpan..." : "Simpan Target"}
-            </Button>
+            <Button onClick={handleAddGoal} disabled={submitting}>{submitting ? "Menyimpan..." : "Simpan"}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
       <Dialog open={depositDialogOpen} onOpenChange={setDepositDialogOpen}>
-        <DialogContent className="sm:max-w-[380px]">
+        <DialogContent className="sm:max-w-[400px]">
           <DialogHeader>
             <DialogTitle>Nabung</DialogTitle>
-            <DialogDescription>{depositGoalId ? `Setor dana ke "${goals.find((g) => g.id === depositGoalId)?.name || ""}"` : "Setor dana ke target tabungan"}</DialogDescription>
+            <DialogDescription>Setor nominal tabungan</DialogDescription>
           </DialogHeader>
           <div className="grid gap-4 py-4">
-            <div className="grid gap-2">
-              <label className="text-sm font-medium">Jumlah Setoran (Rp)</label>
-              <Input type="text" inputMode="numeric" placeholder="500.000" value={depositAmount} onChange={(e) => { const raw = e.target.value.replace(/[^0-9]/g, ""); if (raw === "") setDepositAmount(""); else setDepositAmount(new Intl.NumberFormat("id-ID").format(parseInt(raw, 10))); }} autoFocus />
-            </div>
-            {depositGoalId && (() => {
-              const g = goals.find((x) => x.id === depositGoalId);
-              if (!g) return null;
-              const parsedDeposit = parseInt(depositAmount.replace(/\./g, ""), 10);
-              const safeDeposit = Number.isNaN(parsedDeposit) ? 0 : parsedDeposit;
-              const afterDeposit = g.collected + safeDeposit;
-              const newPercent = Math.min(Math.round((afterDeposit / g.target) * 100), 100);
-              return (
-                <div className="rounded-lg bg-muted p-3 space-y-1.5 text-sm">
-                  <div className="flex justify-between"><span className="text-muted-foreground">Terkumpul saat ini</span><span className="font-medium">{formatRupiah(g.collected)}</span></div>
-                  <div className="flex justify-between"><span className="text-muted-foreground">Setelah disetor</span><span className="font-semibold text-secondary">{formatRupiah(afterDeposit)}</span></div>
-                  <div className="flex justify-between"><span className="text-muted-foreground">Progress</span><span className="font-semibold">{newPercent}%</span></div>
-                </div>
-              );
-            })()}
+            <div className="grid gap-2"><label className="text-sm font-medium">Nominal (Rp)</label><Input type="text" inputMode="numeric" placeholder="500.000" value={depositAmount} onChange={(e) => { const raw = e.target.value.replace(/[^0-9]/g, ""); if (raw === "") setDepositAmount(""); else setDepositAmount(new Intl.NumberFormat("id-ID").format(parseInt(raw, 10))); }} /></div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => { setDepositDialogOpen(false); setDepositAmount(""); setDepositGoalId(null); }}>Batal</Button>
-            <Button onClick={handleDeposit} disabled={submitting || !depositAmount.trim()}>{submitting ? "Menyimpan..." : "Setor Sekarang"}</Button>
+            <Button variant="outline" onClick={() => setDepositDialogOpen(false)}>Batal</Button>
+            <Button onClick={handleDeposit} disabled={submitting}>{submitting ? "Menyimpan..." : "Setor"}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

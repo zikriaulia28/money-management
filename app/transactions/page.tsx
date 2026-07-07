@@ -35,7 +35,7 @@ import {
   ChevronDown,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
-import { useStore, formatRupiah } from "@/lib/store";
+import { useStore, formatRupiah, formatDateDisplay } from "@/lib/store";
 import {
   Select,
   SelectContent,
@@ -167,7 +167,7 @@ export default function TransactionsPage() {
 
   const [searchQuery, setSearchQuery] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("Semua Kategori");
-  const [userFilter, setUserFilter] = useState("Semua User");
+  const [userFilter, setUserFilter] = useState("Semua User"); // Keep state for UI, but ignore in query
   const [periodFilter, setPeriodFilter] = useState("Bulan Ini");
   const [currentPage, setCurrentPage] = useState(1);
 
@@ -190,7 +190,6 @@ export default function TransactionsPage() {
 
   const buildQuery = (): Record<string, string> => {
     const params: Record<string, string> = {};
-    if (userFilter !== "Semua User") params.user = userFilter;
     const q = searchQuery.trim();
     if (q) params.q = q;
     if (categoryFilter !== "Semua Kategori") params.category = categoryFilter;
@@ -236,7 +235,7 @@ export default function TransactionsPage() {
   useEffect(() => {
     fetchTransactions();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeUser, userFilter, categoryFilter, searchQuery, periodFilter]);
+  }, [categoryFilter, searchQuery, periodFilter]);
 
   useEffect(() => {
     fetchCategories();
@@ -520,7 +519,7 @@ export default function TransactionsPage() {
                         </Badge>
                       </TableCell>
                       <TableCell className="text-sm text-muted-foreground hidden sm:table-cell">
-                        {tx.date}
+                        {formatDateDisplay(tx.date)}
                       </TableCell>
                       <TableCell className="hidden lg:table-cell">
                         <div className="flex items-center gap-2">

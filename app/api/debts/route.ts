@@ -8,8 +8,15 @@ export async function GET(request: Request) {
     const { searchParams } = new URL(request.url);
     const userId = searchParams.get("userId");
 
+    // Always filter by household (Keluarga) - shared data
+    const household = await prisma.household.findFirst({ where: { name: "Keluarga" } });
+    const where: Record<string, unknown> = {};
+    if (household) {
+      where.householdId = household.id;
+    }
+
     const debts = await prisma.debt.findMany({
-      where: userId ? { userId } : undefined,
+      where,
       orderBy: { createdAt: "asc" },
     });
 

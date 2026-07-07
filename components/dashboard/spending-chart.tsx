@@ -25,20 +25,14 @@ type ApiTransaction = {
 type DataPoint = { day: string; amount: number };
 
 export function SpendingChart() {
-  const activeUser = useStore((s) => s.activeUser);
-
   const [transactions, setTransactions] = useState<ApiTransaction[]>([]);
   const [loading, setLoading] = useState(false);
 
   async function fetchTransactions() {
     setLoading(true);
     try {
-      const res = await fetch(`/api/transactions?user=${encodeURIComponent(activeUser)}`, {
-        cache: "no-store",
-      });
-      if (!res.ok) {
-        return;
-      }
+      const res = await fetch(`/api/transactions`, { cache: "no-store" });
+      if (!res.ok) return;
       const data = (await res.json()) as { transactions: ApiTransaction[] };
       setTransactions(data.transactions ?? []);
     } catch {
@@ -50,7 +44,7 @@ export function SpendingChart() {
 
   useEffect(() => {
     fetchTransactions();
-  }, [activeUser]);
+  }, []);
 
   const data = useMemo<DataPoint[]>(() => {
     const expenses = transactions

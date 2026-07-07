@@ -9,11 +9,11 @@ export async function GET(request: Request) {
     const userId = searchParams.get("userId");
     const householdId = searchParams.get("householdId");
 
+    // Always filter by household (Keluarga) - shared data
+    const household = await prisma.household.findFirst({ where: { name: "Keluarga" } });
     const where: Record<string, unknown> = {};
-    if (userId) {
-      where.userId = userId;
-    } else if (householdId) {
-      where.householdId = householdId;
+    if (household) {
+      where.householdId = household.id;
     }
 
     const goals = await prisma.savingGoal.findMany({

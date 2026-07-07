@@ -46,8 +46,10 @@ export async function GET(request: Request) {
 
     const where: Record<string, unknown> = {};
 
-    if (user) {
-      where.user = { role: { equals: user as "Suami" | "Istri" } };
+    // Filter by household (Keluarga) - all users share same data
+    const household = await prisma.household.findFirst({ where: { name: "Keluarga" } });
+    if (household) {
+      where.user = { householdId: household.id };
     }
 
     const range = getPeriodRange(period);
@@ -63,7 +65,14 @@ export async function GET(request: Request) {
     }
 
     if (category && category !== "Semua Kategori") {
-      where.category = { name: { equals: category } };
+      // Cari categoryId dulu
+      const cat = await prisma.category.findFirst({
+        where: { name: category },
+        select: { id: true },
+      });
+      if (cat) {
+        where.categoryId = cat.id;
+      }
     }
 
     const transactions = await prisma.transaction.findMany({

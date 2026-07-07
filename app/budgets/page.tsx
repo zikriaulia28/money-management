@@ -12,7 +12,7 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-import { Plus } from "lucide-react";
+import { Plus, Trash2 } from "lucide-react";
 import { useStore, formatRupiah } from "@/lib/store";
 import {
   Select,
@@ -22,12 +22,32 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 
-const PERIODS = [
-  "2026-01",
-  "2025-12",
-  "2025-11",
-  "2025-10",
-];
+function getCurrentPeriod(): string {
+  const now = new Date();
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+}
+
+function generatePeriods(): { value: string; label: string }[] {
+  const periods: { value: string; label: string }[] = [];
+  const months = ["Januari", "Februari", "Maret", "April", "Mei", "Juni", "Juli", "Agustus", "September", "Oktober", "November", "Desember"];
+  const now = new Date();
+  const currentYear = now.getFullYear();
+  const currentMonth = now.getMonth(); // 0-indexed
+
+  // Last 12 months + next 2 months
+  for (let i = -12; i <= 2; i++) {
+    const targetDate = new Date(currentYear, currentMonth + i, 1);
+    const year = targetDate.getFullYear();
+    const month = targetDate.getMonth();
+    const value = `${year}-${String(month + 1).padStart(2, "0")}`;
+    const label = `${months[month]} ${year}`;
+    periods.push({ value, label });
+  }
+
+  return periods;
+}
+
+const PERIODS = generatePeriods();
 
 const barBg: Record<string, string> = {
   primary: "bg-primary",
@@ -72,7 +92,7 @@ export default function BudgetsPage() {
   const [loadingTx, setLoadingTx] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [period, setPeriod] = useState<string>(PERIODS[0]);
+  const [period, setPeriod] = useState<string>(PERIODS.find(p => p.value === getCurrentPeriod())?.value ?? PERIODS[0].value);
 
   const [dialogOpen, setDialogOpen] = useState(false);
   const [categories, setCategories] = useState<{ id: string; name: string; type?: string }[]>([]);
@@ -148,7 +168,7 @@ export default function BudgetsPage() {
         "2025-10": "year",
       };
       const txPeriod = periodQueryMap[period] || "month";
-      const res = await fetch(`/api/transactions?user=${encodeURIComponent(activeUser)}&period=${encodeURIComponent(txPeriod)}&category=Semua+Kategori`, {
+      const res = await fetch(`/api/transactions?period=${encodeURIComponent(txPeriod)}&category=Semua+Kategori`, {
         cache: "no-store",
       });
       if (!res.ok) return;
@@ -168,7 +188,7 @@ export default function BudgetsPage() {
   useEffect(() => {
     fetchBudgets();
     fetchTransactions();
-  }, [activeUser, period]);
+  }, [period]);
 
   const spentByCategory = useMemo(() => {
     const map = new Map<string, number>();
@@ -237,6 +257,22 @@ export default function BudgetsPage() {
     }
   }
 
+  async function handleDeleteBudget(budgetId: string) {
+    if (!confirm("Yakin hapus budget ini?")) return;
+    try {
+      const res = await fetch(`/api/budgets?id=${encodeURIComponent(budgetId)}`, {
+        method: "DELETE",
+      });
+      if (!res.ok) {
+        const text = await res.text();
+        throw new Error(text || `Gagal hapus budget: ${res.status}`);
+      }
+      fetchBudgets();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Terjadi kesalahan");
+    }
+  }
+
   const totals = enrichedBudgets.reduce(
     (acc, b) => ({
       budget: acc.budget + b.limit,
@@ -252,12 +288,12 @@ export default function BudgetsPage() {
         <div className="flex items-center gap-3">
           <h1 className="text-2xl font-bold tracking-tight">Anggaran Bulanan</h1>
           <Select value={period} onValueChange={(value) => value && setPeriod(value)}>
-            <SelectTrigger className="h-8 text-sm min-w-[150px]">
+            <SelectTrigger className="h-8 text-sm min-w-[160px]">
               <SelectValue placeholder="Pilih periode" />
             </SelectTrigger>
             <SelectContent>
               {PERIODS.map((p) => (
-                <SelectItem key={p} value={p}>{p}</SelectItem>
+                <SelectItem key={p.value} value={p.value}>{p.label}</SelectItem>
               ))}
             </SelectContent>
           </Select>
@@ -320,6 +356,15 @@ export default function BudgetsPage() {
                       <span className={meta.isOver ? "text-destructive font-medium" : "text-muted-foreground"}>dari {formatRupiah(item.limit)}</span>
                     </div>
                     {meta.isOver && <p className="text-xs text-destructive mt-2 font-medium">⚠ Melebihi budget sebesar {formatRupiah(meta.overAmount)}</p>}
+                    <div className="mt-3 pt-3 border-t border-dashed border-border flex justify-end">
+                      <button
+                        type="button"
+                        onClick={() => handleDeleteBudget(item.id)}
+                        className="text-xs text-muted-foreground hover:text-destructive flex items-center gap-1"
+                      >
+                        <Trash2 className="h-3 w-3" /> Hapus
+                      </button>
+                    </div>
                   </div>
                 );
               })}

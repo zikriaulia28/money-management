@@ -27,7 +27,7 @@ export async function GET(request: Request) {
 
     const budgets = await prisma.budget.findMany({
       where,
-      include: { category: true },
+      include: { category: { select: { id: true, name: true, icon: true } } },
       orderBy: { createdAt: "asc" },
     });
 
@@ -49,7 +49,6 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Data budget tidak lengkap" }, { status: 400 });
     }
 
-    // Auto-create atau dapatkan Household default
     let household = await prisma.household.findFirst({ where: { name: "Keluarga" } });
     if (!household) {
       household = await prisma.household.create({
@@ -79,6 +78,25 @@ export async function POST(request: Request) {
   } catch (error) {
     console.error("[POST /api/budgets]", error);
     return NextResponse.json({ error: "Gagal menyimpan budget" }, { status: 500 });
+  } finally {
+    await prisma.$disconnect();
+  }
+}
+
+export async function DELETE(request: Request) {
+  try {
+    const { searchParams } = new URL(request.url);
+    const id = searchParams.get("id");
+
+    if (!id) {
+      return NextResponse.json({ error: "Budget ID tidak valid" }, { status: 400 });
+    }
+
+    await prisma.budget.delete({ where: { id } });
+    return NextResponse.json({ success: true });
+  } catch (error) {
+    console.error("[DELETE /api/budgets]", error);
+    return NextResponse.json({ error: "Gagal menghapus budget" }, { status: 500 });
   } finally {
     await prisma.$disconnect();
   }
