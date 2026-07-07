@@ -273,7 +273,7 @@ export default function BudgetsPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div className="flex items-center gap-3">
           <h1 className="text-2xl font-bold tracking-tight">Anggaran Bulanan</h1>
           <Select value={period} onValueChange={(value) => value && setPeriod(value)}>
@@ -287,7 +287,7 @@ export default function BudgetsPage() {
             </SelectContent>
           </Select>
         </div>
-        <Button className="gap-2" onClick={() => setDialogOpen(true)}>
+        <Button className="gap-2 w-full sm:w-auto" onClick={() => setDialogOpen(true)}>
           <Plus className="h-4 w-4" /> Budget Baru
         </Button>
       </div>
