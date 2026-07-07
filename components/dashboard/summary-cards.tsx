@@ -5,6 +5,7 @@ import { TrendingUp, TrendingDown, Wallet, ArrowUpRight, ArrowDownRight } from "
 import { Card, CardContent } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 import { useStore, formatRupiah } from "@/lib/store";
+import { cachedFetch } from "@/lib/fetch-cache";
 
 type ApiTransaction = {
   id: string;
@@ -30,11 +31,10 @@ export function SummaryCards() {
   async function fetchTransactions() {
     setLoading(true);
     try {
-      const res = await fetch(`/api/transactions?user=${encodeURIComponent(activeUser)}`, {
-        cache: "no-store",
-      });
-      if (!res.ok) return;
-      const data = (await res.json()) as { transactions: ApiTransaction[] };
+      const data = await cachedFetch<{ transactions: ApiTransaction[] }>(
+        `/api/transactions?user=${encodeURIComponent(activeUser)}`
+      );
+      if (!data) return;
       setTransactions(data.transactions ?? []);
     } catch {
       // keep previous state

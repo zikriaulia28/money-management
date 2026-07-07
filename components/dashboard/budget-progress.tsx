@@ -6,6 +6,7 @@ import { Progress } from "@/components/ui/progress";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import Link from "next/link";
+import { cachedFetch, clearCache } from "@/lib/fetch-cache";
 import { useStore, formatRupiah } from "@/lib/store";
 
 type ApiBudget = {
@@ -38,20 +39,13 @@ export function BudgetProgress() {
     setLoading(true);
     try {
       const period = getMonthPeriod();
-      const [budgetsRes, transactionsRes] = await Promise.all([
-        fetch(`/api/budgets?period=${encodeURIComponent(period)}`, { cache: "no-store" }),
-        fetch("/api/transactions", { cache: "no-store" }),
+      const [budgetsData, transactionsData] = await Promise.all([
+        cachedFetch<{ budgets: ApiBudget[] }>(`/api/budgets?period=${encodeURIComponent(period)}`),
+        cachedFetch<{ transactions: ApiTransaction[] }>("/api/transactions"),
       ]);
 
-      if (budgetsRes.ok) {
-        const budgetsData = (await budgetsRes.json()) as { budgets: ApiBudget[] };
-        setBudgets(budgetsData.budgets ?? []);
-      }
-
-      if (transactionsRes.ok) {
-        const transactionsData = (await transactionsRes.json()) as { transactions: ApiTransaction[] };
-        setTransactions(transactionsData.transactions ?? []);
-      }
+      setBudgets(budgetsData.budgets ?? []);
+      setTransactions(transactionsData.transactions ?? []);
     } catch {
       // keep previous state
     } finally {

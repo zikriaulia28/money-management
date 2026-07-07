@@ -14,6 +14,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Plus, Trash2 } from "lucide-react";
 import { useStore, formatRupiah } from "@/lib/store";
+import { cachedFetch, clearCache } from "@/lib/fetch-cache";
 import {
   Select,
   SelectContent,
@@ -101,9 +102,7 @@ export default function BudgetsPage() {
 
   async function fetchCategories() {
     try {
-      const res = await fetch("/api/categories", { cache: "no-store" });
-      if (!res.ok) return;
-      const data = (await res.json()) as { categories: { id: string; name: string; type?: string }[] };
+      const data = await cachedFetch<{ categories: { id: string; name: string; type?: string }[] }>('/api/categories');
       setCategories(data.categories ?? []);
     } catch {
       // keep page functional even if categories fetch fails
@@ -136,12 +135,7 @@ export default function BudgetsPage() {
     setLoadingBudgets(true);
     setError(null);
     try {
-      const res = await fetch(`/api/budgets?period=${encodeURIComponent(period)}`, { cache: "no-store" });
-      if (!res.ok) {
-        const text = await res.text();
-        throw new Error(text || `Gagal memuat budget: ${res.status}`);
-      }
-      const data = (await res.json()) as ApiResponse;
+      const data = await cachedFetch<ApiResponse>(`/api/budgets?period=${encodeURIComponent(period)}`);
       const mapped: BudgetItem[] = (data.budgets ?? []).map((b) => ({
         ...b,
         spent: 0,
@@ -168,11 +162,9 @@ export default function BudgetsPage() {
         "2025-10": "year",
       };
       const txPeriod = periodQueryMap[period] || "month";
-      const res = await fetch(`/api/transactions?period=${encodeURIComponent(txPeriod)}&category=Semua+Kategori`, {
-        cache: "no-store",
-      });
-      if (!res.ok) return;
-      const data = (await res.json()) as { transactions: ApiTransaction[] };
+      const data = await cachedFetch<{ transactions: ApiTransaction[] }>(
+        `/api/transactions?period=${encodeURIComponent(txPeriod)}&category=Semua+Kategori`
+      );
       setTransactions(data.transactions ?? []);
     } catch {
       // Keep budget page functional even if tx fetch fails
@@ -222,12 +214,7 @@ export default function BudgetsPage() {
     setSubmitting(true);
     setError(null);
     try {
-      const householdRes = await fetch("/api/budgets", {
-        method: "GET",
-        cache: "no-store",
-      });
-      if (!householdRes.ok) throw new Error("Gagal memuat household");
-      const current = (await householdRes.json()) as ApiResponse;
+      const current = await cachedFetch<ApiResponse>('/api/budgets?limit=1', { bust: true });
       const currentHouseholdId = current.budgets?.[0]?.householdId;
 
       const res = await fetch("/api/budgets", {
@@ -249,6 +236,7 @@ export default function BudgetsPage() {
       setDialogOpen(false);
       setCategoryId("");
       setNewBudget("");
+      clearCache();
       fetchBudgets();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Terjadi kesalahan");
@@ -267,6 +255,7 @@ export default function BudgetsPage() {
         const text = await res.text();
         throw new Error(text || `Gagal hapus budget: ${res.status}`);
       }
+      clearCache();
       fetchBudgets();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Terjadi kesalahan");

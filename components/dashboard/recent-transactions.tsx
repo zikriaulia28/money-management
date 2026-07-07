@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
+import { cachedFetch } from "@/lib/fetch-cache";
 import { useStore, formatRupiah, formatDateDisplay } from "@/lib/store";
 
 type ApiTransaction = {
@@ -31,9 +32,7 @@ export function RecentTransactions() {
   async function fetchTransactions() {
     setLoading(true);
     try {
-      const res = await fetch("/api/transactions", { cache: "no-store" });
-      if (!res.ok) return;
-      const data = (await res.json()) as { transactions: ApiTransaction[] };
+      const data = await cachedFetch<{ transactions: ApiTransaction[] }>("/api/transactions");
       setTransactions(data.transactions ?? []);
     } catch {
       // keep previous state

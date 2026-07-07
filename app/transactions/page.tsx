@@ -36,6 +36,7 @@ import {
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { useStore, formatRupiah, formatDateDisplay } from "@/lib/store";
+import { cachedFetch } from "@/lib/fetch-cache";
 import {
   Select,
   SelectContent,
@@ -200,7 +201,7 @@ export default function TransactionsPage() {
 
   async function fetchCategories() {
     try {
-      const res = await fetch("/api/categories", { cache: "no-store" });
+      const res = await cachedFetch<Response>('/api/categories');
       if (res.ok) {
         const data = await res.json() as { categories: { id: string; name: string; type?: string }[] };
         setCategories(data.categories ?? []);
@@ -215,14 +216,7 @@ export default function TransactionsPage() {
     setError(null);
     try {
       const params = new URLSearchParams(buildQuery());
-      const res = await fetch(`/api/transactions?${params.toString()}`, {
-        cache: "no-store",
-      });
-      if (!res.ok) {
-        const text = await res.text();
-        throw new Error(text || `Gagal memuat transaksi: ${res.status}`);
-      }
-      const data = (await res.json()) as ApiResponse;
+      const data = await cachedFetch<ApiResponse>(`/api/transactions?${params.toString()}`);
       setTransactions(data.transactions ?? []);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Terjadi kesalahan");

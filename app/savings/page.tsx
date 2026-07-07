@@ -14,6 +14,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Plus, PiggyBank, Home, Plane, Trash2 } from "lucide-react";
 import { useStore, formatRupiah } from "@/lib/store";
+import { cachedFetch, clearCache } from "@/lib/fetch-cache";
 import {
   Select,
   SelectContent,
@@ -100,6 +101,7 @@ export default function SavingsPage() {
         const text = await res.text();
         throw new Error(text || `Gagal menandai selesai: ${res.status}`);
       }
+      clearCache();
       fetchGoals();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Terjadi kesalahan");
@@ -120,6 +122,7 @@ export default function SavingsPage() {
         const text = await res.text();
         throw new Error(text || `Gagal hapus target: ${res.status}`);
       }
+      clearCache();
       fetchGoals();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Terjadi kesalahan");
@@ -132,12 +135,7 @@ export default function SavingsPage() {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch(`/api/goals`, { cache: "no-store" });
-      if (!res.ok) {
-        const text = await res.text();
-        throw new Error(text || `Gagal memuat tabungan: ${res.status}`);
-      }
-      const data = (await res.json()) as ApiResponse;
+      const data = await cachedFetch<ApiResponse>('/api/goals');
       setGoals(data.goals ?? []);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Terjadi kesalahan");

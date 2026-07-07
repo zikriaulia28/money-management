@@ -11,6 +11,7 @@ import {
   ResponsiveContainer,
 } from "recharts";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { cachedFetch } from "@/lib/fetch-cache";
 import { useStore, formatRupiah } from "@/lib/store";
 
 type ApiTransaction = {
@@ -31,9 +32,7 @@ export function SpendingChart() {
   async function fetchTransactions() {
     setLoading(true);
     try {
-      const res = await fetch(`/api/transactions`, { cache: "no-store" });
-      if (!res.ok) return;
-      const data = (await res.json()) as { transactions: ApiTransaction[] };
+      const data = await cachedFetch<{ transactions: ApiTransaction[] }>("/api/transactions");
       setTransactions(data.transactions ?? []);
     } catch {
       // keep previous state

@@ -25,6 +25,7 @@ import {
   Trash2,
 } from "lucide-react";
 import { useStore, formatRupiah, formatDateDisplay } from "@/lib/store";
+import { cachedFetch, clearCache } from "@/lib/fetch-cache";
 
 const DEBT_CATEGORIES = [
   { value: "KPR", label: "KPR", icon: Home, iconColor: "text-primary", iconBg: "bg-primary/10" },
@@ -82,12 +83,7 @@ export default function DebtsPage() {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch(`/api/debts`, { cache: "no-store" });
-      if (!res.ok) {
-        const text = await res.text();
-        throw new Error(text || `Gagal memuat cicilan: ${res.status}`);
-      }
-      const data = (await res.json()) as { debts: ApiDebt[] };
+      const data = await cachedFetch<{ debts: ApiDebt[] }>('/api/debts');
       setDebts(data.debts ?? []);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Terjadi kesalahan");
