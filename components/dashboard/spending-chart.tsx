@@ -216,8 +216,9 @@ export function SpendingChart() {
                   <AreaChart data={lineData} margin={{ top: 5, right: 10, left: 10, bottom: 5 }}>
                     <defs>
                       <linearGradient id="gradient" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="0%" stopColor="hsl(var(--primary))" stopOpacity={0.25} />
-                        <stop offset="100%" stopColor="hsl(var(--primary))" stopOpacity={0.02} />
+                        <stop offset="0%" stopColor="#ef4444" stopOpacity={0.3} />
+                        <stop offset="50%" stopColor="#f59e0b" stopOpacity={0.2} />
+                        <stop offset="100%" stopColor="#22c55e" stopOpacity={0.05} />
                       </linearGradient>
                     </defs>
                     <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} />
@@ -250,7 +251,7 @@ export function SpendingChart() {
                       strokeWidth={2.5}
                       fill="url(#gradient)"
                       dot={{ r: 3, fill: "hsl(var(--primary))", strokeWidth: 1, stroke: "hsl(var(--background))" }}
-                      activeDot={{ r: 6, fill: "hsl(var(--primary))", stroke: "white", strokeWidth: 2 }}
+                      activeDot={{ r: 6, fill: "#ef4444", stroke: "white", strokeWidth: 2 }}
                     />
                   </AreaChart>
                 </ResponsiveContainer>

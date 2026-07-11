@@ -409,15 +409,15 @@ export default function BudgetsPage() {
           Belum ada budget untuk bulan ini. Klik "Buat Otomatis" atau "Tambah" untuk mulai.
         </div>
       ) : (
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 xl:grid-cols-3">
           {budgets.map((budget) => {
             const pct = budget.amount > 0 ? Math.min(100, Math.round((budget.spent / budget.amount) * 100)) : 0;
             const isOver = budget.spent > budget.amount;
             return (
               <Card key={budget.id}>
                 <CardHeader className="pb-3">
-                  <div className="flex items-center justify-between">
-                    <Badge variant="secondary" className="text-xs font-bold uppercase">
+                  <div className="flex items-center justify-between gap-2">
+                    <Badge variant="secondary" className="text-xs font-bold uppercase truncate max-w-[150px]">
                       {budget.category}
                     </Badge>
                     <button
@@ -430,20 +430,20 @@ export default function BudgetsPage() {
                   </div>
                 </CardHeader>
                 <CardContent className="space-y-3">
-                  <div className="flex justify-between text-sm">
+                  <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-1 text-sm">
                     <span className="text-muted-foreground">Budget</span>
-                    <span className="font-semibold">{formatRupiah(budget.amount)}</span>
+                    <span className="font-semibold text-right sm:text-left">{formatRupiah(budget.amount)}</span>
                   </div>
-                  <div className="flex justify-between text-sm">
+                  <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-1 text-sm">
                     <span className="text-muted-foreground">Terpakai</span>
-                    <span className={`font-semibold ${isOver ? "text-destructive" : ""}`}>
+                    <span className={`font-semibold ${isOver ? "text-destructive" : ""} text-right sm:text-left`}>
                       {formatRupiah(budget.spent)}
                     </span>
                   </div>
                   <div className="space-y-1">
-                    <div className="flex justify-between text-xs text-muted-foreground">
+                    <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-1 text-xs text-muted-foreground">
                       <span>{pct}%</span>
-                      <span>Sisa {formatRupiah(budget.amount - budget.spent)}</span>
+                      <span className="text-right sm:text-left">Sisa {formatRupiah(budget.amount - budget.spent)}</span>
                     </div>
                     <Progress value={pct} className={`h-2 ${isOver ? "[&>div]:bg-destructive" : ""}`} />
                   </div>
