@@ -12,7 +12,7 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-import { Plus, PiggyBank, Home, Plane, Trash2 } from "lucide-react";
+import { Plus, PiggyBank, Home, Plane, Trash2, History as HistoryIcon } from "lucide-react";
 import { useStore, formatRupiah } from "@/lib/store";
 import { cachedFetch, clearCache } from "@/lib/fetch-cache";
 import {
@@ -90,6 +90,31 @@ export default function SavingsPage() {
   const [depositGoalId, setDepositGoalId] = useState<string | null>(null);
   const [depositAmount, setDepositAmount] = useState("");
 
+  // ── Delete confirm modal ──
+  const [deleteTarget, setDeleteTarget] = useState<{ id: string; name: string } | null>(null);
+
+  // ── Deposit history modal ──
+  const [historyTarget, setHistoryTarget] = useState<{ id: string; name: string } | null>(null);
+  const [historyData, setHistoryData] = useState<{ amount: number; type: string; date: string; note?: string | null }[]>([]);
+  const [historyLoading, setHistoryLoading] = useState(false);
+
+  async function openHistory(goalId: string, name: string) {
+    setHistoryTarget({ id: goalId, name });
+    setHistoryLoading(true);
+    try {
+      const res = await fetch(`/api/goals?goalId=${encodeURIComponent(goalId)}&withDeposits=true`);
+      if (res.ok) {
+        const data = await res.json();
+        const goal = data.goals?.[0];
+        setHistoryData(goal?.deposits ?? []);
+      }
+    } catch {
+      // silent
+    } finally {
+      setHistoryLoading(false);
+    }
+  }
+
   async function handleCompleteGoal(goalId: string) {
     setSubmitting(true);
     setError(null);
@@ -102,7 +127,7 @@ export default function SavingsPage() {
         throw new Error(text || `Gagal menandai selesai: ${res.status}`);
       }
       clearCache();
-      fetchGoals();
+      fetchGoals(true);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Terjadi kesalahan");
     } finally {
@@ -111,7 +136,6 @@ export default function SavingsPage() {
   }
 
   async function handleDeleteGoal(goalId: string) {
-    if (!confirm("Yakin hapus target ini?")) return;
     setSubmitting(true);
     setError(null);
     try {
@@ -123,6 +147,7 @@ export default function SavingsPage() {
         throw new Error(text || `Gagal hapus target: ${res.status}`);
       }
       clearCache();
+      setDeleteTarget(null);
       fetchGoals();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Terjadi kesalahan");
@@ -131,11 +156,11 @@ export default function SavingsPage() {
     }
   }
 
-  async function fetchGoals() {
+  async function fetchGoals(bust = false) {
     setLoading(true);
     setError(null);
     try {
-      const data = await cachedFetch<ApiResponse>('/api/goals');
+      const data = await cachedFetch<ApiResponse>('/api/goals?withDeposits=true', { bust });
       setGoals(data.goals ?? []);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Terjadi kesalahan");
@@ -146,6 +171,13 @@ export default function SavingsPage() {
 
   useEffect(() => {
     fetchGoals();
+  }, []);
+
+  // Auto-refresh: ketika user balik ke tab ini dari halaman lain
+  useEffect(() => {
+    const onFocus = () => fetchGoals(true);
+    window.addEventListener("focus", onFocus);
+    return () => window.removeEventListener("focus", onFocus);
   }, []);
 
   async function handleAddGoal() {
@@ -179,7 +211,7 @@ export default function SavingsPage() {
       setDialogOpen(false);
       setNewName("");
       setNewTarget("");
-      fetchGoals();
+      fetchGoals(true);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Terjadi kesalahan");
     } finally {
@@ -205,7 +237,8 @@ export default function SavingsPage() {
       setDepositDialogOpen(false);
       setDepositAmount("");
       setDepositGoalId(null);
-      fetchGoals();
+      clearCache();
+      fetchGoals(true);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Terjadi kesalahan");
     } finally {
@@ -232,7 +265,7 @@ export default function SavingsPage() {
       {error ? (
         <div className="p-4 text-sm text-red-600 dark:text-red-400">
           {error}
-          <button type="button" className="ml-3 underline" onClick={fetchGoals}>Coba lagi</button>
+          <button type="button" className="ml-3 underline" onClick={() => fetchGoals(true)}>Coba lagi</button>
         </div>
       ) : null}
 
@@ -272,7 +305,17 @@ export default function SavingsPage() {
                   </div>
                   <div className="mt-4 pt-4 border-t border-border">
                     {isCompleted ? (
-                      <p className="text-sm text-center text-muted-foreground">Target sudah tercapai 🎉</p>
+                      <div className="flex flex-col gap-2">
+                        <p className="text-sm text-center text-muted-foreground">Target sudah tercapai 🎉</p>
+                        <div className="flex gap-2">
+                          <Button variant="ghost" size="sm" className="flex-1" onClick={() => openHistory(goal.id, goal.name)}>
+                            <HistoryIcon className="h-4 w-4 mr-1.5" /> Riwayat
+                          </Button>
+                          <Button variant="ghost" size="sm" className="flex-1 text-destructive hover:text-destructive" onClick={() => setDeleteTarget({ id: goal.id, name: goal.name })}>
+                            <Trash2 className="h-4 w-4 mr-1.5" /> Hapus Target
+                          </Button>
+                        </div>
+                      </div>
                     ) : (
                       <div className="flex flex-col gap-2">
                         <div className="flex items-center justify-between text-xs">
@@ -281,8 +324,18 @@ export default function SavingsPage() {
                         </div>
                         <div className="flex gap-2">
                           <Button variant="default" size="sm" className="flex-1" onClick={() => { setDepositGoalId(goal.id); setDepositAmount(""); setDepositDialogOpen(true); }}>Nabung</Button>
-                          <Button variant="outline" size="sm" className="flex-1" onClick={() => handleCompleteGoal(goal.id)}>Selesai</Button>
-                          <Button variant="ghost" size="sm" className="px-2 text-muted-foreground hover:text-destructive" onClick={() => handleDeleteGoal(goal.id)}><Trash2 className="h-4 w-4" /></Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="flex-1"
+                            disabled={!isCompleted}
+                            title={isCompleted ? "" : "Tabungan belum penuh"}
+                            onClick={() => handleCompleteGoal(goal.id)}
+                          >
+                            Selesai
+                          </Button>
+                          <Button variant="ghost" size="sm" className="px-2 text-muted-foreground hover:text-destructive" onClick={() => openHistory(goal.id, goal.name)}><HistoryIcon className="h-4 w-4" /></Button>
+                          <Button variant="ghost" size="sm" className="px-2 text-muted-foreground hover:text-destructive" onClick={() => setDeleteTarget({ id: goal.id, name: goal.name })}><Trash2 className="h-4 w-4" /></Button>
                         </div>
                       </div>
                     )}
@@ -339,6 +392,65 @@ export default function SavingsPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* History Modal */}
+      {historyTarget && (
+        <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4">
+          <div className="bg-card rounded-xl border border-border shadow-lg max-w-md w-full p-6 space-y-4">
+            <div className="flex items-center justify-between">
+              <h2 className="text-lg font-semibold">Riwayat Tabungan</h2>
+              <Button variant="ghost" size="sm" onClick={() => setHistoryTarget(null)}>✕</Button>
+            </div>
+            <p className="text-sm text-muted-foreground">{historyTarget.name}</p>
+            <div className="max-h-[60vh] overflow-y-auto -mx-2 px-2">
+              {historyLoading ? (
+                <p className="text-sm text-center text-muted-foreground py-6">Memuat...</p>
+              ) : historyData.length === 0 ? (
+                <p className="text-sm text-center text-muted-foreground py-6">Belum ada setoran</p>
+              ) : (
+                <div className="space-y-2">
+                  {historyData.map((d, i) => (
+                    <div key={i} className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
+                      <div>
+                        <p className="text-sm font-medium">{formatRupiah(d.amount)}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {new Date(d.date).toLocaleDateString("id-ID", { day: "numeric", month: "short", year: "numeric" })}
+                        </p>
+                      </div>
+                      <span className="text-xs px-2 py-0.5 rounded-full bg-primary/10 text-primary">
+                        {d.type === "budget" ? "Budget" : d.type === "recurring" ? "Recurring" : "Manual"}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+            <div className="flex justify-end pt-1">
+              <Button variant="outline" onClick={() => setHistoryTarget(null)}>Tutup</Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Confirm Modal */}
+      {deleteTarget && (
+        <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4">
+          <div className="bg-card rounded-xl border border-border shadow-lg max-w-sm w-full p-6 space-y-4">
+            <h2 className="text-lg font-semibold">Hapus Target Tabungan</h2>
+            <p className="text-sm text-muted-foreground">
+              Yakin ingin menghapus <strong>{deleteTarget.name}</strong>? Tindakan ini tidak bisa dibatalkan.
+            </p>
+            <div className="flex items-center justify-end gap-3 pt-1">
+              <Button variant="outline" onClick={() => setDeleteTarget(null)}>
+                Batal
+              </Button>
+              <Button variant="destructive" onClick={() => handleDeleteGoal(deleteTarget.id)}>
+                Ya, Hapus
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

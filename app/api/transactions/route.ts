@@ -100,8 +100,6 @@ export async function GET(request: Request) {
   } catch (error) {
     console.error("[GET /api/transactions]", error);
     return NextResponse.json({ error: "Gagal memuat transaksi" }, { status: 500 });
-  } finally {
-    await prisma.$disconnect();
   }
 }
 
@@ -114,7 +112,6 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Data transaksi tidak lengkap" }, { status: 400 });
     }
 
-    // 1. Dapatkan atau buat Household default
     let household = await prisma.household.findFirst({ where: { name: "Keluarga" } });
     if (!household) {
       household = await prisma.household.create({
@@ -122,20 +119,13 @@ export async function POST(request: Request) {
       });
     }
 
-    // 2. Dapatkan atau buat User (berdasarkan role "Suami" atau "Istri")
     let dbUser = await prisma.user.findFirst({ where: { role: user } });
     if (!dbUser) {
       dbUser = await prisma.user.create({
-        data: { 
-          id: `user-${user.toLowerCase()}`, 
-          role: user, 
-          name: user,
-          householdId: household.id 
-        },
+        data: { id: `user-${user.toLowerCase()}`, role: user, name: user, householdId: household.id },
       });
     }
 
-    // 3. Dapatkan atau buat Category
     let dbCat = await prisma.category.findUnique({ where: { name: category } });
     if (!dbCat) {
       dbCat = await prisma.category.create({
@@ -160,7 +150,78 @@ export async function POST(request: Request) {
   } catch (error) {
     console.error("[POST /api/transactions]", error);
     return NextResponse.json({ error: "Gagal menambah transaksi" }, { status: 500 });
-  } finally {
-    await prisma.$disconnect();
+  }
+}
+
+export async function PUT(request: Request) {
+  try {
+    const body = await request.json();
+    const { id, name, amount, type, date, category, user, note } = body ?? {};
+
+    if (!id) {
+      return NextResponse.json({ error: "ID transaksi tidak ditemukan" }, { status: 400 });
+    }
+
+    const existing = await prisma.transaction.findUnique({ where: { id } });
+    if (!existing) {
+      return NextResponse.json({ error: "Transaksi tidak ditemukan" }, { status: 404 });
+    }
+
+    const updateData: Record<string, unknown> = {};
+    if (name) updateData.name = name;
+    if (amount != null) updateData.amount = Number(amount);
+    if (type) updateData.type = type;
+    if (date) updateData.date = new Date(date);
+    if (note !== undefined) updateData.note = note ?? null;
+
+    if (category) {
+      let dbCat = await prisma.category.findUnique({ where: { name: category } });
+      if (!dbCat) {
+        dbCat = await prisma.category.create({
+          data: { name: category, icon: "Circle", type: type || "pengeluaran" },
+        });
+      }
+      updateData.categoryId = dbCat.id;
+    }
+
+    if (user) {
+      let dbUser = await prisma.user.findFirst({ where: { role: user } });
+      if (dbUser) updateData.userId = dbUser.id;
+    }
+
+    const transaction = await prisma.transaction.update({
+      where: { id },
+      data: updateData,
+      include: { category: true },
+    });
+
+    return NextResponse.json({ transaction });
+  } catch (error) {
+    console.error("[PUT /api/transactions]", error);
+    return NextResponse.json({ error: "Gagal mengupdate transaksi" }, { status: 500 });
+  }
+}
+
+export async function DELETE(request: Request) {
+  try {
+    const { searchParams } = new URL(request.url);
+    const id = searchParams.get("id");
+
+    if (!id) {
+      return NextResponse.json({ error: "ID transaksi tidak ditemukan" }, { status: 400 });
+    }
+    
+    console.log("[DELETE] id:", id);
+
+    const existing = await prisma.transaction.findUnique({ where: { id } });
+    if (!existing) {
+      return NextResponse.json({ error: "Transaksi tidak ditemukan" }, { status: 404 });
+    }
+
+    await prisma.transaction.delete({ where: { id } });
+    return NextResponse.json({ success: true });
+  } catch (error) {
+    console.error("[DELETE /api/transactions]", error);
+    return NextResponse.json({ error: `Gagal menghapus transaksi: ${error instanceof Error ? error.message : "Unknown error"}` }, { status: 500 });
   }
 }

@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import Link from "next/link";
 import { cachedFetch } from "@/lib/fetch-cache";
 import { useStore, formatRupiah, formatDateDisplay } from "@/lib/store";
+import { CATEGORY_COLOR_MAP } from "@/lib/categories";
 
 type ApiTransaction = {
   id: string;
@@ -17,13 +18,7 @@ type ApiTransaction = {
   user: "Suami" | "Istri";
 };
 
-const categoryColors: Record<string, string> = {
-  Kebutuhan: "bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300",
-  Pendapatan: "bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300",
-  Hiburan: "bg-orange-100 text-orange-700 dark:bg-orange-900 dark:text-orange-300",
-  Transportasi: "bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300",
-  Kuliner: "bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300",
-};
+const categoryColors = CATEGORY_COLOR_MAP;
 
 export function RecentTransactions() {
   const [transactions, setTransactions] = useState<ApiTransaction[]>([]);

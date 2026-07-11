@@ -10,6 +10,29 @@ function getDefaultHousehold() {
   });
 }
 
+// Hitung total pengeluaran aktual per kategori di bulan tertentu
+async function getSpentByCategory(householdId: string, period: string) {
+  const start = new Date(`${period}-01`);
+  const end = new Date(start);
+  end.setMonth(end.getMonth() + 1);
+
+  const txs = await prisma.transaction.findMany({
+    where: {
+      user: { householdId },
+      type: "pengeluaran",
+      date: { gte: start, lt: end },
+    },
+    include: { category: { select: { name: true } } },
+  });
+
+  const spent: Record<string, number> = {};
+  for (const tx of txs) {
+    const name = tx.category.name;
+    spent[name] = (spent[name] || 0) + Math.abs(tx.amount);
+  }
+  return spent;
+}
+
 export async function GET(request: Request) {
   try {
     const url = new URL(request.url);
@@ -31,24 +54,41 @@ export async function GET(request: Request) {
       orderBy: { createdAt: "asc" },
     });
 
-    return NextResponse.json({ budgets });
+    // Ambil data spent dari transaksi aktual
+    const spentMap = periodQuery ? await getSpentByCategory(household.id, periodQuery) : {};
+
+    // Map ke format frontend-friendly
+    const result = budgets.map((b) => ({
+      id: b.id,
+      category: b.category.name,
+      amount: b.limit,
+      spent: spentMap[b.category.name] || 0,
+      month: b.period,
+      createdAt: b.createdAt.toISOString(),
+    }));
+
+    return NextResponse.json({ budgets: result });
   } catch (error) {
     console.error("[GET /api/budgets]", error);
     return NextResponse.json({ error: "Gagal memuat budget" }, { status: 500 });
-  } finally {
-    await prisma.$disconnect();
   }
 }
 
 export async function POST(request: Request) {
   try {
     const body = await request.json();
-    const { categoryId, limit, period } = body ?? {};
+    const { category, amount, month } = body ?? {};
 
-    if (!categoryId || limit == null || !period) {
+    // Frontend bisa juga kirim format lama: categoryId, limit, period
+    const categoryName = category || body.categoryName;
+    const budgetAmount = amount || body.limit;
+    const budgetPeriod = month || body.period;
+
+    if (!categoryName || budgetAmount == null || !budgetPeriod) {
       return NextResponse.json({ error: "Data budget tidak lengkap" }, { status: 400 });
     }
 
+    // 1. Dapatkan atau buat Household
     let household = await prisma.household.findFirst({ where: { name: "Keluarga" } });
     if (!household) {
       household = await prisma.household.create({
@@ -56,30 +96,50 @@ export async function POST(request: Request) {
       });
     }
 
+    // 2. Resolve Category ID — cari atau buat
+    let categoryRecord = await prisma.category.findFirst({ where: { name: categoryName } });
+    if (!categoryRecord) {
+      // Auto-create jika belum ada
+      const isIncome = ["Gaji", "Bonus/THR"].includes(categoryName);
+      categoryRecord = await prisma.category.create({
+        data: {
+          name: categoryName,
+          icon: "Circle",
+          type: isIncome ? "pemasukan" : "pengeluaran",
+        },
+      });
+    }
+
+    // 3. Upsert budget
     const budget = await prisma.budget.upsert({
       where: {
         categoryId_period_householdId: {
-          categoryId,
-          period,
+          categoryId: categoryRecord.id,
+          period: budgetPeriod,
           householdId: household.id,
         },
       },
-      update: { limit: Number(limit) },
+      update: { limit: Number(budgetAmount) },
       create: {
-        categoryId,
-        limit: Number(limit),
-        period,
+        categoryId: categoryRecord.id,
+        limit: Number(budgetAmount),
+        period: budgetPeriod,
         householdId: household.id,
       },
-      include: { category: true },
+      include: { category: { select: { name: true } } },
     });
 
-    return NextResponse.json({ budget }, { status: 201 });
+    return NextResponse.json({
+      budget: {
+        id: budget.id,
+        category: budget.category.name,
+        amount: budget.limit,
+        month: budget.period,
+      },
+    }, { status: 201 });
   } catch (error) {
     console.error("[POST /api/budgets]", error);
     return NextResponse.json({ error: "Gagal menyimpan budget" }, { status: 500 });
-  } finally {
-    await prisma.$disconnect();
   }
 }
 
@@ -97,7 +157,5 @@ export async function DELETE(request: Request) {
   } catch (error) {
     console.error("[DELETE /api/budgets]", error);
     return NextResponse.json({ error: "Gagal menghapus budget" }, { status: 500 });
-  } finally {
-    await prisma.$disconnect();
   }
 }

@@ -8,6 +8,8 @@ export async function GET(request: Request) {
     const { searchParams } = new URL(request.url);
     const userId = searchParams.get("userId");
     const householdId = searchParams.get("householdId");
+    const withDeposits = searchParams.get("withDeposits") === "true";
+    const goalId = searchParams.get("goalId");
 
     // Always filter by household (Keluarga) - shared data
     const household = await prisma.household.findFirst({ where: { name: "Keluarga" } });
@@ -15,10 +17,14 @@ export async function GET(request: Request) {
     if (household) {
       where.householdId = household.id;
     }
+    if (goalId) {
+      where.id = goalId;
+    }
 
     const goals = await prisma.savingGoal.findMany({
       where: Object.keys(where).length > 0 ? where : undefined,
       orderBy: { createdAt: "asc" },
+      include: withDeposits ? { deposits: { orderBy: { date: "desc" } } } : undefined,
     });
 
     return NextResponse.json({ goals });
@@ -87,6 +93,8 @@ export async function PATCH(request: Request) {
     const id = searchParams.get("id");
     const amount = searchParams.get("amount");
     const complete = searchParams.get("complete");
+    const type = searchParams.get("type") || "manual"; // "manual" | "budget" | "recurring"
+    const note = searchParams.get("note") || undefined;
 
     if (!id) {
       return NextResponse.json({ error: "Goal ID tidak valid" }, { status: 400 });
@@ -110,6 +118,17 @@ export async function PATCH(request: Request) {
       if (!existing.completed && collected >= existing.target) {
         updateData.completed = true;
       }
+
+      // Create deposit history record (separate from goal update)
+      await prisma.savingDeposit.create({
+        data: {
+          goalId: id,
+          amount: amountNum,
+          type: type, // Gunakan dynamic type dari request
+          note,
+          date: new Date(),
+        },
+      });
     }
 
     if (complete !== null) {

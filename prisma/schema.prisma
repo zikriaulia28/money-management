@@ -140,8 +140,23 @@ model SavingGoal {
   householdId String
   household   Household @relation(fields: [householdId], references: [id])
 
+  deposits    SavingDeposit[]
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+}
+
+// ── Saving Deposits (History) ────────────────────────────────
+model SavingDeposit {
+  id           String     @id @default(cuid())
+  goalId       String
+  goal         SavingGoal @relation(fields: [goalId], references: [id], onDelete: Cascade)
+  amount       Int        // nominal deposit
+  type         String     // "manual" | "budget" | "recurring"
+  note         String?    @db.Text
+  date         DateTime   @default(now())
+
+  createdAt DateTime @default(now())
 }
 
 // ── Debts ──────────────────────────────────────────────────────

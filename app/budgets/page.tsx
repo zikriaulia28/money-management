@@ -1,20 +1,11 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-  DialogFooter,
-} from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Plus, Trash2 } from "lucide-react";
-import { useStore, formatRupiah } from "@/lib/store";
-import { cachedFetch, clearCache } from "@/lib/fetch-cache";
+import { Badge } from "@/components/ui/badge";
+import { Progress } from "@/components/ui/progress";
 import {
   Select,
   SelectContent,
@@ -22,395 +13,794 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { useStore, formatRupiah, formatDateDisplay } from "@/lib/store";
+import { cachedFetch, clearCache } from "@/lib/fetch-cache";
+import { CATEGORIES } from "@/lib/categories";
+import { Plus, Sparkles, PiggyBank, Trash2, Loader2, Save } from "lucide-react";
 
-function getCurrentPeriod(): string {
-  const now = new Date();
-  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
-}
-
-function generatePeriods(): { value: string; label: string }[] {
-  const periods: { value: string; label: string }[] = [];
-  const months = ["Januari", "Februari", "Maret", "April", "Mei", "Juni", "Juli", "Agustus", "September", "Oktober", "November", "Desember"];
-  const now = new Date();
-  const currentYear = now.getFullYear();
-  const currentMonth = now.getMonth(); // 0-indexed
-
-  // Last 12 months + next 2 months
-  for (let i = -12; i <= 2; i++) {
-    const targetDate = new Date(currentYear, currentMonth + i, 1);
-    const year = targetDate.getFullYear();
-    const month = targetDate.getMonth();
-    const value = `${year}-${String(month + 1).padStart(2, "0")}`;
-    const label = `${months[month]} ${year}`;
-    periods.push({ value, label });
-  }
-
-  return periods;
-}
-
-const PERIODS = generatePeriods();
-
-const barBg: Record<string, string> = {
-  primary: "bg-primary",
-  tertiary: "bg-orange-500",
-  secondary: "bg-secondary",
-  error: "bg-destructive",
-};
-
-const badgeColor: Record<string, string> = {
-  primary: "text-primary",
-  tertiary: "text-orange-500",
-  secondary: "text-secondary",
-  error: "text-destructive",
-};
-
-type BudgetItem = {
+type Budget = {
   id: string;
-  category: {
-    id: string;
-    name: string;
-    type?: string;
-  };
-  limit: number;
-  period: string;
-  householdId: string;
-  createdAt?: string;
-  updatedAt?: string;
-  spent?: number;
-  color?: string;
+  category: string;
+  amount: number;
+  spent: number;
+  month: string;
+  createdAt: string;
 };
 
-type ApiResponse = {
-  budgets: BudgetItem[];
+type ApiBudgetCreateInput = {
+  category: string;
+  amount: number;
+  month: string;
 };
+
+// Preset templates — total harus 100%
+const PRESETS: Record<string, { label: string; allocations: Record<string, number> }> = {
+  standar: {
+    label: "Standar Keluarga",
+    allocations: {
+      "Kebutuhan Rumah": 30,
+      "Makan & Minum": 20,
+      "Belanja Harian": 15,
+      Transportasi: 10,
+      Anak: 10,
+      Kesehatan: 5,
+      Hiburan: 5,
+      Donasi: 5,
+    },
+  },
+  hemat: {
+    label: "Hemat",
+    allocations: {
+      "Kebutuhan Rumah": 35,
+      "Makan & Minum": 25,
+      "Belanja Harian": 15,
+      Transportasi: 10,
+      Kesehatan: 5,
+      Anak: 5,
+      Donasi: 5,
+    },
+  },
+  seimbang: {
+    label: "Seimbang",
+    allocations: {
+      "Kebutuhan Rumah": 25,
+      "Makan & Minum": 20,
+      "Belanja Harian": 15,
+      Transportasi: 10,
+      Anak: 10,
+      Kesehatan: 5,
+      Hiburan: 10,
+      Donasi: 5,
+    },
+  },
+};
+
+function getMonthLabel(offset = 0): string {
+  const d = new Date();
+  d.setMonth(d.getMonth() + offset);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+}
+
+function formatMonthDisplay(isoMonth: string): string {
+  const [y, m] = isoMonth.split("-").map(Number);
+  const months = [
+    "Jan", "Feb", "Mar", "Apr", "Mei", "Jun",
+    "Jul", "Agu", "Sep", "Okt", "Nov", "Des",
+  ];
+  return `${months[m - 1]} ${y}`;
+}
 
 export default function BudgetsPage() {
   const activeUser = useStore((s) => s.activeUser);
 
-  const [budgets, setBudgets] = useState<BudgetItem[]>([]);
-  const [transactions, setTransactions] = useState<ApiTransaction[]>([]);
-  const [loadingBudgets, setLoadingBudgets] = useState(false);
-  const [loadingTx, setLoadingTx] = useState(false);
-  const [submitting, setSubmitting] = useState(false);
+  const [budgets, setBudgets] = useState<Budget[]>([]);
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [period, setPeriod] = useState<string>(PERIODS.find(p => p.value === getCurrentPeriod())?.value ?? PERIODS[0].value);
 
+  const [period, setPeriod] = useState(getMonthLabel());
+  const [budgetMonths, setBudgetMonths] = useState<string[]>([]);
+
+  // ── Dialog tambah manual ──
   const [dialogOpen, setDialogOpen] = useState(false);
-  const [categories, setCategories] = useState<{ id: string; name: string; type?: string }[]>([]);
-  const [categoryId, setCategoryId] = useState("");
-  const [newBudget, setNewBudget] = useState("");
+  const [newCategory, setNewCategory] = useState(CATEGORIES.filter((c) => c.type === "expense")[0]?.value ?? "");
+  const [newAmount, setNewAmount] = useState("");
 
-  async function fetchCategories() {
-    try {
-      const data = await cachedFetch<{ categories: { id: string; name: string; type?: string }[] }>('/api/categories');
-      setCategories(data.categories ?? []);
-    } catch {
-      // keep page functional even if categories fetch fails
-    }
-  }
+  // ── Wizard ──
+  type ActiveGoal = { id: string; name: string; target: number; collected: number };
+  const [wizardOpen, setWizardOpen] = useState(false);
+  const [wizardIncome, setWizardIncome] = useState("");
+  const [wizardPreset, setWizardPreset] = useState("standar");
+  const [wizardAllocations, setWizardAllocations] = useState<Record<string, number>>(
+    PRESETS.standar.allocations
+  );
+  const [wizardGoalAllocs, setWizardGoalAllocs] = useState<Record<string, number>>({});
+  const [wizardActiveGoals, setWizardActiveGoals] = useState<ActiveGoal[]>([]);
+  const [wizardStep, setWizardStep] = useState(1);
+  const [wizardSubmitting, setWizardSubmitting] = useState(false);
+  const [wizardHasExisting, setWizardHasExisting] = useState(false);
+  const [showOverwriteConfirm, setShowOverwriteConfirm] = useState(false);
 
-  type ApiTransaction = {
-    id: string;
-    name: string;
-    category: string;
-    categoryType?: string;
-    amount: number;
-    date: string;
-    user: string;
-  };
+  // ── Delete confirm ──
+  const [deleteId, setDeleteId] = useState<string | null>(null);
 
-  const categoryColors: Record<string, "primary" | "tertiary" | "secondary" | "error"> =
-    {
-      Belanja: "tertiary",
-      "Kebutuhan Rumah": "primary",
-      Hiburan: "secondary",
-      Transportasi: "primary",
-      Kuliner: "error",
-      Kesehatan: "secondary",
-      Gaji: "primary",
-      Bonus: "primary",
-    };
-
-  async function fetchBudgets() {
-    setLoadingBudgets(true);
+  async function fetchBudgets(bust = false) {
+    setLoading(true);
     setError(null);
     try {
-      const data = await cachedFetch<ApiResponse>(`/api/budgets?period=${encodeURIComponent(period)}`);
-      const mapped: BudgetItem[] = (data.budgets ?? []).map((b) => ({
-        ...b,
-        spent: 0,
-        color:
-          categoryColors[b.category?.name ?? ""] ||
-          barBg[Object.keys(barBg)[Math.floor(Math.random() * Object.keys(barBg).length)]]?.replace("bg-", "") ||
-          "primary",
-      }));
-      setBudgets(mapped);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Terjadi kesalahan");
-    } finally {
-      setLoadingBudgets(false);
-    }
-  }
-
-  async function fetchTransactions() {
-    setLoadingTx(true);
-    try {
-      const periodQueryMap: Record<string, string> = {
-        "2026-01": "month",
-        "2025-12": "lastMonth",
-        "2025-11": "3months",
-        "2025-10": "year",
-      };
-      const txPeriod = periodQueryMap[period] || "month";
-      const data = await cachedFetch<{ transactions: ApiTransaction[] }>(
-        `/api/transactions?period=${encodeURIComponent(txPeriod)}&category=Semua+Kategori`
+      const data = await cachedFetch<{ budgets: Budget[] }>(
+        `/api/budgets?period=${encodeURIComponent(period)}`,
+        { bust }
       );
-      setTransactions(data.transactions ?? []);
-    } catch {
-      // Keep budget page functional even if tx fetch fails
+      setBudgets(data.budgets ?? []);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Gagal memuat budget");
     } finally {
-      setLoadingTx(false);
+      setLoading(false);
     }
   }
-
-  useEffect(() => {
-    fetchCategories();
-  }, []);
 
   useEffect(() => {
     fetchBudgets();
-    fetchTransactions();
+
+    const months: string[] = [];
+    for (let i = 0; i >= -5; i--) {
+      months.push(getMonthLabel(i));
+    }
+    setBudgetMonths(months);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [period]);
 
-  const spentByCategory = useMemo(() => {
-    const map = new Map<string, number>();
-    for (const tx of transactions) {
-      const key = tx.category || tx.category || tx.category;
-      const current = map.get(key) || 0;
-      map.set(key, current + (tx.amount < 0 ? Math.abs(tx.amount) : 0));
-    }
-    return map;
-  }, [transactions]);
-
-  const enrichedBudgets = useMemo(() => {
-    return budgets.map((b) => {
-      const spent = spentByCategory.get(b.category.name) ?? 0;
-      return { ...b, spent, color: b.color || "primary" };
-    });
-  }, [budgets, spentByCategory]);
-
-  function computeBudgetMeta(limit: number, spent: number) {
-    const percent = limit > 0 ? Math.min(Math.round((spent / limit) * 100), 100) : 0;
-    const isOver = spent > limit;
-    const overAmount = isOver ? spent - limit : 0;
-    return { percent, isOver, overAmount };
-  }
-
+  // ── Manual add ──
   async function handleAddBudget() {
-    if (!categoryId || !newBudget.trim()) return;
-    const budgetValue = parseInt(newBudget.replace(/\./g, ""), 10);
-    if (isNaN(budgetValue) || budgetValue <= 0) return;
+    const amountValue = parseInt(newAmount.replace(/\./g, ""), 10);
+    if (!newCategory || isNaN(amountValue) || amountValue <= 0 || !period) {
+      setError("Mohon isi semua field dengan benar");
+      return;
+    }
 
-    setSubmitting(true);
     setError(null);
     try {
-      const current = await cachedFetch<ApiResponse>('/api/budgets?limit=1', { bust: true });
-      const currentHouseholdId = current.budgets?.[0]?.householdId;
-
       const res = await fetch("/api/budgets", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          categoryId,
-          limit: budgetValue,
-          period,
-          householdId: currentHouseholdId,
-        }),
+          category: newCategory,
+          amount: amountValue,
+          month: period,
+        } satisfies ApiBudgetCreateInput),
       });
-
       if (!res.ok) {
         const text = await res.text();
-        throw new Error(text || `Gagal menyimpan budget: ${res.status}`);
+        throw new Error(text || "Gagal menambah budget");
       }
-
       setDialogOpen(false);
-      setCategoryId("");
-      setNewBudget("");
-      clearCache();
-      fetchBudgets();
+      setNewCategory(CATEGORIES.filter((c) => c.type === "expense")[0]?.value ?? "");
+      setNewAmount("");
+      fetchBudgets(true);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Terjadi kesalahan");
+    }
+  }
+
+  // ── Delete ──
+  async function confirmDelete() {
+    if (!deleteId) return;
+    try {
+      const res = await fetch(`/api/budgets?id=${deleteId}`, { method: "DELETE" });
+      if (!res.ok) throw new Error("Gagal menghapus budget");
+      setBudgets((prev) => prev.filter((b) => b.id !== deleteId));
+      clearCache(`GET:/api/budgets`);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Terjadi kesalahan");
     } finally {
-      setSubmitting(false);
+      setDeleteId(null);
     }
   }
 
-  async function handleDeleteBudget(budgetId: string) {
-    if (!confirm("Yakin hapus budget ini?")) return;
+  // ── Wizard ──
+  async function openWizard() {
+    // Cek budget existing di bulan ini
     try {
-      const res = await fetch(`/api/budgets?id=${encodeURIComponent(budgetId)}`, {
-        method: "DELETE",
-      });
-      if (!res.ok) {
-        const text = await res.text();
-        throw new Error(text || `Gagal hapus budget: ${res.status}`);
+      const existing = await cachedFetch<{ budgets: Budget[] }>(
+        `/api/budgets?period=${encodeURIComponent(period)}`
+      );
+      setWizardHasExisting((existing.budgets ?? []).length > 0);
+    } catch {
+      setWizardHasExisting(false);
+    }
+    // Fetch active goals (not completed)
+    try {
+      const res = await cachedFetch<{ goals: { id: string; name: string; target: number; collected: number; completed: boolean }[] }>("/api/goals");
+      const activeGoals = (res.goals ?? []).filter(g => !g.completed).map(g => ({
+        id: g.id,
+        name: g.name,
+        target: g.target,
+        collected: g.collected,
+      }));
+      setWizardActiveGoals(activeGoals);
+      // Initialize allocations with 0% for each active goal
+      const initialAllocs: Record<string, number> = {};
+      activeGoals.forEach(g => { initialAllocs[g.id] = 0; });
+      setWizardGoalAllocs(initialAllocs);
+    } catch {
+      setWizardActiveGoals([]);
+      setWizardGoalAllocs({});
+    }
+    // Load saved template if exists
+    const saved = typeof window !== "undefined" ? localStorage.getItem("budgetWizardTemplate") : null;
+    if (saved) {
+      try {
+        const tpl = JSON.parse(saved);
+        setWizardPreset(tpl.preset ?? "standar");
+        setWizardAllocations(tpl.allocations ?? PRESETS.standar.allocations);
+        // Note: goal allocs not saved in template (fresh each time)
+      } catch { applyPreset("standar"); }
+    } else {
+      applyPreset("standar");
+    }
+    setWizardIncome("");
+    setWizardStep(1);
+    setWizardOpen(true);
+  }
+
+  function applyPreset(key: string) {
+    setWizardPreset(key);
+    setWizardAllocations({ ...PRESETS[key].allocations });
+  }
+
+  function saveWizardTemplate() {
+    const tpl = { preset: wizardPreset, allocations: wizardAllocations, savingsGoalAllocs: wizardGoalAllocs };
+    localStorage.setItem("budgetWizardTemplate", JSON.stringify(tpl));
+  }
+
+  const budgetCategoriesTotal = useMemo(
+    () => Object.values(wizardAllocations).reduce((s, v) => s + (v || 0), 0),
+    [wizardAllocations]
+  );
+  const goalSavingsTotal = useMemo(
+    () => Object.values(wizardGoalAllocs).reduce((s, v) => s + (v || 0), 0),
+    [wizardGoalAllocs]
+  );
+  const totalPercent = budgetCategoriesTotal + goalSavingsTotal;
+  const wizardIncomeValue = parseInt(wizardIncome.replace(/\./g, ""), 10) || 0;
+
+  async function handleWizardGenerate() {
+    if (wizardIncomeValue <= 0) {
+      setError("Masukkan total pemasukan terlebih dahulu");
+      return;
+    }
+    if (totalPercent !== 100) {
+      setError(`Total alokasi harus 100%, sekarang ${totalPercent}%`);
+      return;
+    }
+    // Jika ada budget existing, tampilkan konfirmasi overwrite
+    if (wizardHasExisting && !showOverwriteConfirm) {
+      setShowOverwriteConfirm(true);
+      return;
+    }
+    setWizardSubmitting(true);
+    setError(null);
+    try {
+      // Hapus budget existing di bulan ini dulu
+      const existing = await cachedFetch<{ budgets: Budget[] }>(
+        `/api/budgets?period=${encodeURIComponent(period)}`
+      );
+      await Promise.all(
+        (existing.budgets ?? []).map((b) =>
+          fetch(`/api/budgets?id=${b.id}`, { method: "DELETE" })
+        )
+      );
+
+      // Buat budget baru per kategori
+      await Promise.all(
+        Object.entries(wizardAllocations).map(([cat, pct]) => {
+          const amt = Math.round((wizardIncomeValue * pct) / 100);
+          if (amt <= 0) return Promise.resolve();
+          return fetch("/api/budgets", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ category: cat, amount: amt, month: period }),
+          });
+        })
+      );
+
+      // Deposit ke goals yang dipilih
+      for (const [goalId, pct] of Object.entries(wizardGoalAllocs)) {
+        if (pct <= 0) continue;
+        const depositAmount = Math.round((wizardIncomeValue * pct) / 100);
+        if (depositAmount <= 0) continue;
+        await fetch(`/api/goals?id=${goalId}&amount=${depositAmount}&type=budget`, {
+          method: "PATCH",
+        });
       }
-      clearCache();
-      fetchBudgets();
+
+      // Clear cache goals juga agar halaman savings langsung terupdate
+      clearCache("GET:/api/goals");
+
+      setWizardOpen(false);
+      setShowOverwriteConfirm(false);
+      fetchBudgets(true);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Terjadi kesalahan");
+      setError(err instanceof Error ? err.message : "Gagal membuat budget otomatis");
+    } finally {
+      setWizardSubmitting(false);
     }
   }
 
-  const totals = enrichedBudgets.reduce(
-    (acc, b) => ({
-      budget: acc.budget + b.limit,
-      spent: acc.spent + (b.spent || 0),
-    }),
-    { budget: 0, spent: 0 }
-  );
-  const remaining = totals.budget - totals.spent;
+  const totalBudget = budgets.reduce((s, b) => s + b.amount, 0);
+  const totalSpent = budgets.reduce((s, b) => s + b.spent, 0);
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight">Budget</h1>
+          <p className="text-sm text-muted-foreground mt-1">
+            Atur batas pengeluaran per kategori
+          </p>
+        </div>
         <div className="flex items-center gap-3">
-          <h1 className="text-2xl font-bold tracking-tight">Anggaran Bulanan</h1>
-          <Select value={period} onValueChange={(value) => value && setPeriod(value)}>
-            <SelectTrigger className="h-8 text-sm min-w-[160px]">
-              <SelectValue placeholder="Pilih periode" />
+          <Select value={period} onValueChange={(v) => { if (v) setPeriod(v); }}>
+            <SelectTrigger className="h-9 min-w-[140px] text-sm">
+              <SelectValue placeholder="Pilih bulan" />
             </SelectTrigger>
             <SelectContent>
-              {PERIODS.map((p) => (
-                <SelectItem key={p.value} value={p.value}>{p.label}</SelectItem>
+              {budgetMonths.map((m) => (
+                <SelectItem key={m} value={m}>
+                  {formatMonthDisplay(m)}
+                </SelectItem>
               ))}
             </SelectContent>
           </Select>
+          <Button onClick={openWizard} variant="secondary" className="h-9 gap-2 text-sm">
+            <Sparkles className="h-4 w-4" />
+            Buat Otomatis
+          </Button>
+          <Button onClick={() => setDialogOpen(true)} className="h-9 gap-2 text-sm">
+            <Plus className="h-4 w-4" />
+            Tambah
+          </Button>
         </div>
-        <Button className="gap-2 w-full sm:w-auto" onClick={() => setDialogOpen(true)}>
-          <Plus className="h-4 w-4" /> Budget Baru
-        </Button>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      {/* Ringkasan */}
+      {budgets.length > 0 && (
         <Card>
-          <CardContent className="p-5">
-            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Total Budget</p>
-            <p className="text-2xl font-bold mt-1">{formatRupiah(totals.budget)}</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-5">
-            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Total Terpakai</p>
-            <p className="text-2xl font-bold mt-1 text-orange-500">{formatRupiah(totals.spent)}</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-5">
-            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Sisa Budget</p>
-            <p className="text-2xl font-bold mt-1 text-secondary">{formatRupiah(remaining)}</p>
-          </CardContent>
-        </Card>
-      </div>
-
-      {error ? (
-        <div className="p-4 text-sm text-red-600 dark:text-red-400">
-          {error}
-          <button type="button" className="ml-3 underline" onClick={fetchBudgets}>Coba lagi</button>
-        </div>
-      ) : null}
-
-      <Card>
-        <CardHeader><CardTitle>Rincian per Kategori</CardTitle></CardHeader>
-        <CardContent>
-          {loadingBudgets ? (
-            <p className="text-sm text-muted-foreground text-center py-8">Memuat data...</p>
-          ) : enrichedBudgets.length === 0 ? (
-            <p className="text-sm text-muted-foreground col-span-full text-center py-8">Belum ada anggaran. Klik &quot;Budget Baru&quot; untuk memulai.</p>
-          ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-              {enrichedBudgets.map((item) => {
-                const meta = computeBudgetMeta(item.limit, item.spent || 0);
-                return (
-                  <div key={item.id} className={`rounded-xl border p-5 transition-shadow hover:shadow-md ${meta.isOver ? "border-destructive/50 bg-destructive/5" : "border-border bg-card"}`}>
-                    <div className="flex items-center justify-between mb-3">
-                      <h4 className="text-sm font-semibold">{item.category.name}</h4>
-                      <span className={`text-xs font-bold ${badgeColor[item.color || "primary"]}`}>{meta.percent}%</span>
-                    </div>
-                    <div className="w-full bg-muted h-3 rounded-full overflow-hidden mb-2">
-                      <div className={`h-full rounded-full transition-all duration-500 ${barBg[item.color || "primary"]}`} style={{ width: `${meta.percent}%` }} />
-                    </div>
-                    <div className="flex justify-between text-sm">
-                      <span className="text-muted-foreground">Terpakai {formatRupiah(item.spent || 0)}</span>
-                      <span className={meta.isOver ? "text-destructive font-medium" : "text-muted-foreground"}>dari {formatRupiah(item.limit)}</span>
-                    </div>
-                    {meta.isOver && <p className="text-xs text-destructive mt-2 font-medium">⚠ Melebihi budget sebesar {formatRupiah(meta.overAmount)}</p>}
-                    <div className="mt-3 pt-3 border-t border-dashed border-border flex justify-end">
-                      <button
-                        type="button"
-                        onClick={() => handleDeleteBudget(item.id)}
-                        className="text-xs text-muted-foreground hover:text-destructive flex items-center gap-1"
-                      >
-                        <Trash2 className="h-3 w-3" /> Hapus
-                      </button>
-                    </div>
-                  </div>
-                );
-              })}
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base">Ringkasan Budget</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="flex items-center gap-6 text-sm">
+              <div>
+                <span className="text-muted-foreground">Total Budget: </span>
+                <span className="font-semibold">{formatRupiah(totalBudget)}</span>
+              </div>
+              <div>
+                <span className="text-muted-foreground">Terpakai: </span>
+                <span className="font-semibold">{formatRupiah(totalSpent)}</span>
+              </div>
+              <div>
+                <span className="text-muted-foreground">Sisa: </span>
+                <span className={`font-semibold ${totalBudget - totalSpent < 0 ? "text-destructive" : "text-secondary"}`}>
+                  {formatRupiah(totalBudget - totalSpent)}
+                </span>
+              </div>
             </div>
-          )}
-        </CardContent>
-      </Card>
+          </CardContent>
+        </Card>
+      )}
 
-      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent className="sm:max-w-[400px]">
-          <DialogHeader>
-            <DialogTitle>Budget Baru</DialogTitle>
-            <DialogDescription>Tambah anggaran untuk kategori baru</DialogDescription>
-          </DialogHeader>
-          <div className="grid gap-4 py-4">
-            <div className="grid gap-2">
+      {/* Error */}
+      {error && (
+        <div className="p-3 text-sm text-destructive bg-destructive/10 rounded-lg border border-destructive/20">
+          {error}
+          <button type="button" className="ml-2 underline" onClick={() => setError(null)}>
+            Tutup
+          </button>
+        </div>
+      )}
+
+      {/* Daftar Budget */}
+      {loading ? (
+        <div className="text-center py-12 text-sm text-muted-foreground">Memuat...</div>
+      ) : budgets.length === 0 ? (
+        <div className="text-center py-12 text-sm text-muted-foreground">
+          Belum ada budget untuk bulan ini. Klik "Buat Otomatis" atau "Tambah" untuk mulai.
+        </div>
+      ) : (
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {budgets.map((budget) => {
+            const pct = budget.amount > 0 ? Math.min(100, Math.round((budget.spent / budget.amount) * 100)) : 0;
+            const isOver = budget.spent > budget.amount;
+            return (
+              <Card key={budget.id}>
+                <CardHeader className="pb-3">
+                  <div className="flex items-center justify-between">
+                    <Badge variant="secondary" className="text-xs font-bold uppercase">
+                      {budget.category}
+                    </Badge>
+                    <button
+                      onClick={() => setDeleteId(budget.id)}
+                      className="text-muted-foreground hover:text-destructive transition-colors"
+                      title="Hapus budget"
+                    >
+                      ✕
+                    </button>
+                  </div>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  <div className="flex justify-between text-sm">
+                    <span className="text-muted-foreground">Budget</span>
+                    <span className="font-semibold">{formatRupiah(budget.amount)}</span>
+                  </div>
+                  <div className="flex justify-between text-sm">
+                    <span className="text-muted-foreground">Terpakai</span>
+                    <span className={`font-semibold ${isOver ? "text-destructive" : ""}`}>
+                      {formatRupiah(budget.spent)}
+                    </span>
+                  </div>
+                  <div className="space-y-1">
+                    <div className="flex justify-between text-xs text-muted-foreground">
+                      <span>{pct}%</span>
+                      <span>Sisa {formatRupiah(budget.amount - budget.spent)}</span>
+                    </div>
+                    <Progress value={pct} className={`h-2 ${isOver ? "[&>div]:bg-destructive" : ""}`} />
+                  </div>
+                </CardContent>
+              </Card>
+            );
+          })}
+        </div>
+      )}
+
+      {/* Dialog Tambah Manual */}
+      {dialogOpen && (
+        <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4">
+          <div className="bg-card rounded-xl border border-border shadow-lg max-w-md w-full p-6 space-y-5">
+            <h2 className="text-lg font-semibold">Tambah Budget Baru</h2>
+
+            <div className="space-y-1.5">
               <label className="text-sm font-medium">Kategori</label>
-              <Select value={categoryId} onValueChange={(value) => value && setCategoryId(value)}>
-                <SelectTrigger className="h-9 w-full text-sm">
-                  <SelectValue placeholder="Pilih kategori">
-                    {categoryId ? categories.find(c => c.id === categoryId)?.name : "Pilih kategori"}
-                  </SelectValue>
+              <Select value={newCategory} onValueChange={(v) => { if (v) setNewCategory(v); }}>
+                <SelectTrigger className="h-10">
+                  <SelectValue placeholder="Pilih kategori" />
                 </SelectTrigger>
                 <SelectContent>
-                  {categories.length === 0 ? (
-                    <SelectItem value="__none" disabled>Memuat kategori...</SelectItem>
-                  ) : (
-                    categories.map((cat) => (
-                      <SelectItem key={cat.id} value={cat.id}>{cat.name}</SelectItem>
-                    ))
-                  )}
+                  {CATEGORIES.filter((c) => c.type === "expense").map((cat) => (
+                    <SelectItem key={cat.value} value={cat.value}>
+                      {cat.label}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>
-            <div className="grid gap-2">
-              <label className="text-sm font-medium">Batas Budget (Rp)</label>
+
+            <div className="space-y-1.5">
+              <label className="text-sm font-medium">Jumlah Budget (Rp)</label>
               <Input
                 type="text"
                 inputMode="numeric"
-                placeholder="5.000.000"
-                value={newBudget}
+                placeholder="1.000.000"
+                value={newAmount}
                 onChange={(e) => {
                   const raw = e.target.value.replace(/[^0-9]/g, "");
-                  if (raw === "") setNewBudget("");
-                  else setNewBudget(new Intl.NumberFormat("id-ID").format(parseInt(raw, 10)));
+                  setNewAmount(raw ? new Intl.NumberFormat("id-ID").format(parseInt(raw, 10)) : "");
                 }}
+                className="h-10"
               />
             </div>
+
+            <div className="flex items-center justify-end gap-3 pt-2">
+              <Button variant="outline" onClick={() => setDialogOpen(false)}>
+                Batal
+              </Button>
+              <Button onClick={handleAddBudget} disabled={!newCategory || !newAmount}>
+                Simpan
+              </Button>
+            </div>
           </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setDialogOpen(false)}>Batal</Button>
-            <Button onClick={handleAddBudget} disabled={submitting || !categoryId || !newBudget.trim()}>
-              {submitting ? "Menyimpan..." : "Simpan Budget"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+        </div>
+      )}
+
+      {/* Wizard Modal */}
+      {wizardOpen && (
+        <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4">
+          <div className="bg-card rounded-xl border border-border shadow-lg max-w-lg w-full p-6 space-y-5 max-h-[90vh] overflow-y-auto">
+            {/* Step Indicator */}
+            <div className="flex items-center gap-2 text-xs mb-2">
+              <div className="flex items-center gap-1.5">
+                <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold ${wizardStep >= 1 ? "bg-indigo-100 text-indigo-600" : "bg-gray-100 text-gray-400"}`}>1</div>
+                <span className={wizardStep >= 1 ? "font-medium text-gray-700" : "text-gray-400"}>Pemasukan</span>
+              </div>
+              <div className="w-8 h-px bg-gray-300"></div>
+              <div className="flex items-center gap-1.5">
+                <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold ${wizardStep >= 2 ? "bg-indigo-100 text-indigo-600" : "bg-gray-100 text-gray-400"}`}>2</div>
+                <span className={wizardStep >= 2 ? "font-medium text-gray-700" : "text-gray-400"}>Template</span>
+              </div>
+              <div className="w-8 h-px bg-gray-300"></div>
+              <div className="flex items-center gap-1.5">
+                <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold ${wizardStep >= 3 ? "bg-indigo-100 text-indigo-600" : "bg-gray-100 text-gray-400"}`}>3</div>
+                <span className={wizardStep >= 3 ? "font-medium text-gray-700" : "text-gray-400"}>Alokasi</span>
+              </div>
+              <div className="w-8 h-px bg-gray-300"></div>
+              <div className="flex items-center gap-1.5">
+                <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold ${wizardStep >= 4 ? "bg-indigo-100 text-indigo-600" : "bg-gray-100 text-gray-400"}`}>4</div>
+                <span className={wizardStep >= 4 ? "font-medium text-gray-700" : "text-gray-400"}>Jadi ✅</span>
+              </div>
+            </div>
+
+            {/* Step 1: Income */}
+            {wizardStep >= 1 && (
+              <div className="space-y-1.5" data-step="1">
+                {wizardHasExisting && (
+                  <div className="mb-3 p-3 bg-amber-50 border border-amber-200 rounded-lg">
+                    <div className="flex items-start gap-2">
+                      <span className="text-lg mt-0.5">⚠️</span>
+                      <div className="text-sm">
+                        <p className="font-medium text-amber-800">Budget bulan ini sudah ada</p>
+                        <p className="text-amber-700 mt-0.5">
+                          Anda sudah memiliki <strong>{budgets.length}</strong> budget untuk <strong>{formatMonthDisplay(period)}</strong>.
+                          Membuat budget otomatis akan <strong>menghapus semua budget lama</strong> dan mengganti dengan yang baru.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                )}
+                <div className="flex items-center gap-2">
+                  <span className="text-lg">💰</span>
+                  <h2 className="text-lg font-semibold">Total Pemasukan Bulan Ini</h2>
+                </div>
+                <Input
+                  type="text"
+                  inputMode="numeric"
+                  placeholder="4.500.000"
+                  value={wizardIncome}
+                  onChange={(e) => {
+                    const raw = e.target.value.replace(/[^0-9]/g, "");
+                    setWizardIncome(raw ? new Intl.NumberFormat("id-ID").format(parseInt(raw, 10)) : "");
+                  }}
+                  className="h-10"
+                />
+                {wizardIncomeValue <= 0 && (
+                  <p className="text-xs text-gray-500">Masukkan pemasukan untuk melanjutkan</p>
+                )}
+                <div className="flex justify-between gap-2 pt-2">
+                  <Button variant="ghost" size="sm" onClick={() => setWizardOpen(false)}>
+                    Batal
+                  </Button>
+                  <Button variant="secondary" className="w-full sm:w-auto" onClick={() => setWizardStep(2)} disabled={wizardIncomeValue <= 0}>
+                    Lanjut →
+                  </Button>
+                </div>
+              </div>
+            )}
+
+            {/* Step 2: Template */}
+            {wizardStep >= 2 && (
+              <div className="space-y-1.5" data-step="2">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h2 className="text-lg font-semibold">Pilih Template</h2>
+                    <p className="text-xs text-gray-500">Atau gunakan template tersimpan</p>
+                  </div>
+                </div>
+                <div className="grid grid-cols-3 gap-3">
+                  {Object.entries(PRESETS).map(([key, p]) => (
+                    <button
+                      key={key}
+                      type="button"
+                      onClick={() => { applyPreset(key); setWizardStep(3); }}
+                      className={`p-4 rounded-2xl border-2 text-center transition-all ${
+                        wizardPreset === key
+                          ? "border-indigo-500 bg-indigo-50"
+                          : "border-gray-100 hover:border-gray-300"
+                      }`}
+                    >
+                      <div className="w-8 h-8 rounded-lg mx-auto mb-2 flex items-center justify-center text-sm"
+                        style={{
+                          background: key === "standar" ? "#e0e7ff" : key === "hemat" ? "#dcfce7" : "#ffedd5",
+                          color: key === "standar" ? "#4338ca" : key === "hemat" ? "#166534" : "#9a3412"
+                        }}>
+                        {key === "standar" && "🏠"}
+                        {key === "hemat" && "🌱"}
+                        {key === "seimbang" && "⚖️"}
+                      </div>
+                      <div className="text-sm font-semibold">{p.label}</div>
+                      <div className="text-xs text-gray-400 mt-0.5">
+                        {Object.keys(p.allocations).length} kategori
+                      </div>
+                    </button>
+                  ))}
+                </div>
+                <div className="flex justify-between pt-2">
+                  <Button variant="ghost" size="sm" onClick={() => setWizardStep(1)}>← Kembali</Button>
+                  <Button variant="ghost" size="sm" onClick={() => setWizardOpen(false)}>Batal</Button>
+                </div>
+              </div>
+            )}
+
+            {/* Overwrite Confirm inside Wizard */}
+            {showOverwriteConfirm && (
+              <div className="space-y-3">
+                <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg flex items-start gap-2">
+                  <span className="text-lg mt-0.5">⚠️</span>
+                  <div className="text-sm">
+                    <p className="font-medium text-amber-800">Ganti budget yang sudah ada?</p>
+                    <p className="text-amber-700 mt-0.5">
+                      Anda sudah memiliki <strong>{budgets.length}</strong> budget untuk <strong>{formatMonthDisplay(period)}</strong>.
+                      Membuat baru akan <strong>menghapus semua budget lama</strong> dan mengganti dengan yang baru.
+                    </p>
+                  </div>
+                </div>
+                <div className="flex justify-end gap-2">
+                  <Button variant="ghost" onClick={() => setShowOverwriteConfirm(false)}>
+                    Batal
+                  </Button>
+                  <Button variant="destructive" onClick={handleWizardGenerate}>
+                    Ya, Ganti Semua
+                  </Button>
+                </div>
+              </div>
+            )}
+            {wizardStep >= 3 && (
+              <div className="space-y-2" data-step="3">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h2 className="text-lg font-semibold">Atur Alokasi & Tabungan</h2>
+                    <p className="text-xs text-gray-500">Geser slider atau ketik persentase</p>
+                  </div>
+                </div>
+
+                <div className="flex justify-between text-xs text-muted-foreground">
+                  <span>Alokasi Budget</span>
+                  <span className={budgetCategoriesTotal > 100 ? "text-destructive" : "text-secondary"}>
+                    {budgetCategoriesTotal}%
+                  </span>
+                </div>
+
+                {Object.entries(wizardAllocations).map(([cat, pct]) => {
+                  const amt = wizardIncomeValue > 0 ? Math.round((wizardIncomeValue * pct) / 100) : 0;
+                  return (
+                    <div key={cat} className="flex items-center gap-3">
+                      <span className="text-sm w-28 shrink-0 truncate">{cat}</span>
+                      <Input
+                        type="number"
+                        min={0}
+                        max={100}
+                        value={pct}
+                        onChange={(e) => {
+                          const v = Math.max(0, Math.min(100, parseInt(e.target.value || "0", 10)));
+                          setWizardAllocations((prev) => ({ ...prev, [cat]: v }));
+                        }}
+                        className="h-8 w-16 text-sm"
+                      />
+                      <span className="text-xs text-muted-foreground w-8">%</span>
+                      <span className="text-sm font-medium ml-auto">{formatRupiah(amt)}</span>
+                    </div>
+                  );
+                })}
+
+                {wizardActiveGoals.length > 0 && (
+                  <div className="mt-3 p-3 bg-indigo-50 rounded-xl border border-indigo-100">
+                    <h3 className="text-sm font-semibold text-indigo-800 mb-2">Alokasi untuk Target Tabungan</h3>
+                    {wizardActiveGoals.map((goal) => (
+                      <div key={goal.id} className="flex items-center gap-3 mb-2">
+                        <span className="text-sm w-48 shrink-0 truncate">{goal.name}</span>
+                        <Input
+                          type="number"
+                          min={0}
+                          max={100}
+                          value={wizardGoalAllocs[goal.id] || 0}
+                          onChange={(e) => {
+                            const v = Math.max(0, Math.min(100, parseInt(e.target.value || "0", 10)));
+                            setWizardGoalAllocs((prev) => ({ ...prev, [goal.id]: v }));
+                          }}
+                          className="h-8 w-16 text-sm"
+                        />
+                        <span className="text-xs text-muted-foreground w-8">%</span>
+                        <span className="text-sm font-medium ml-auto">
+                          {wizardIncomeValue > 0
+                            ? formatRupiah(Math.round((wizardIncomeValue * (wizardGoalAllocs[goal.id] || 0)) / 100))
+                            : "Rp 0"}
+                        </span>
+                      </div>
+                    ))}
+                    <div className="mt-2 text-xs text-indigo-600">
+                      Total Alokasi Tabungan: {Object.values(wizardGoalAllocs).reduce((s, v) => s + (v || 0), 0)}%
+                    </div>
+                  </div>
+                )}
+
+                <div className="flex justify-between pt-2">
+                  <Button variant="ghost" size="sm" onClick={() => setWizardStep(2)}>← Kembali</Button>
+                  <Button variant="secondary" className="w-full sm:w-auto" onClick={() => setWizardStep(4)} disabled={totalPercent !== 100}>
+                    {totalPercent === 100 ? "Lanjut →" : "Lengkapi 100% dulu"}
+                  </Button>
+                </div>
+              </div>
+            )}
+
+            {/* Step 4: Preview & Generate */}
+            {wizardStep >= 4 && (
+              <div className="space-y-3" data-step="4">
+                <div className="flex items-center gap-2">
+                  <span className="text-lg">✨</span>
+                  <h2 className="text-lg font-semibold">Preview Budget</h2>
+                </div>
+                <div className="p-3 bg-gray-50 rounded-xl">
+                  <div className="flex justify-between text-sm mb-2">
+                    <span className="text-gray-600">Pemasukan</span>
+                    <span className="font-semibold">{formatRupiah(wizardIncomeValue)}</span>
+                  </div>
+                  <div className="space-y-1">
+                    {Object.entries(wizardAllocations).map(([cat, pct]) => {
+                      const amt = wizardIncomeValue > 0 ? Math.round((wizardIncomeValue * pct) / 100) : 0;
+                      return (
+                        <div key={cat} className="flex justify-between text-xs">
+                          <span className="text-gray-600">{cat}</span>
+                          <span className="font-medium">{pct}% — {formatRupiah(amt)}</span>
+                        </div>
+                      );
+                    })}
+                    {wizardActiveGoals.length > 0 && (
+                      <div className="pt-1 border-t border-indigo-100">
+                        {wizardActiveGoals.map((goal) => {
+                          const pct = wizardGoalAllocs[goal.id] || 0;
+                          const amt = wizardIncomeValue > 0 ? Math.round((wizardIncomeValue * pct) / 100) : 0;
+                          return (
+                            <div key={goal.id} className="flex justify-between text-xs text-indigo-600">
+                              <span>🐷 {goal.name}</span>
+                              <span className="font-medium">{pct}% — {formatRupiah(amt)}</span>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                    <div className="flex justify-between text-sm font-semibold text-indigo-600 pt-1 border-t border-gray-200">
+                      <span>Total</span>
+                      <span>{formatRupiah(wizardIncomeValue)}</span>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex justify-between pt-2">
+                  <Button variant="ghost" size="sm" onClick={() => setWizardStep(3)}>← Ubah</Button>
+                  <Button variant="secondary" onClick={saveWizardTemplate} className="flex-1 sm:w-auto flex items-center justify-center gap-1.5">
+                    <Save className="h-4 w-4" /> Simpan Template
+                  </Button>
+                  <Button
+                    onClick={handleWizardGenerate}
+                    disabled={wizardSubmitting || totalPercent !== 100 || wizardIncomeValue <= 0}
+                  >
+                    {wizardSubmitting ? <Loader2 className="h-4 w-4 animate-spin" /> : "✨ Generate Budget"}
+                  </Button>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Delete Confirm */}
+      {deleteId && (
+        <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4">
+          <div className="bg-card rounded-xl border border-border shadow-lg max-w-sm w-full p-6 space-y-4">
+            <h2 className="text-lg font-semibold">Hapus Budget</h2>
+            <p className="text-sm text-muted-foreground">
+              Yakin ingin menghapus budget ini?
+            </p>
+            <div className="flex items-center justify-end gap-3 pt-1">
+              <Button variant="outline" onClick={() => setDeleteId(null)}>
+                Batal
+              </Button>
+              <Button variant="destructive" onClick={confirmDelete}>
+                Ya, Hapus
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
