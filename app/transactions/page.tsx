@@ -41,7 +41,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { CATEGORIES, CATEGORY_COLOR_MAP, ICON_COLOR_MAP, ICON_BG_MAP } from "@/lib/categories";
+import {
+  CATEGORIES,
+  CATEGORY_COLOR_MAP,
+  ICON_COLOR_MAP,
+  ICON_BG_MAP,
+} from "@/lib/categories";
 
 const categoryStyles = CATEGORY_COLOR_MAP;
 const iconColors = ICON_COLOR_MAP;
@@ -52,7 +57,9 @@ const filterableCategories = [
   ...CATEGORIES.filter((c) => c.type === "expense").map((c) => c.value),
 ];
 
-const INCOME_CATEGORIES = CATEGORIES.filter((c) => c.type === "income").map((c) => c.value);
+const INCOME_CATEGORIES = CATEGORIES.filter((c) => c.type === "income").map(
+  (c) => c.value,
+);
 
 const PERIODS = ["Bulan Ini", "Bulan Lalu", "3 Bulan", "Tahun Ini"];
 
@@ -78,12 +85,12 @@ type ApiResponse = {
 
 // Map old category names to new ones (for backward compat with DB)
 const OLD_CATEGORY_MAP: Record<string, string> = {
-  "Kebutuhan": "Kebutuhan Rumah",
-  "Pendapatan": "Gaji",
-  "Kuliner": "Makan & Minum",
+  Kebutuhan: "Kebutuhan Rumah",
+  Pendapatan: "Gaji",
+  Kuliner: "Makan & Minum",
   "Makanan & Minuman": "Makan & Minum",
-  "Belanja": "Belanja Harian",
-  "Bonus": "Bonus/THR",
+  Belanja: "Belanja Harian",
+  Bonus: "Bonus/THR",
 };
 
 const iconOverrides: Record<string, LucideIcon> = {
@@ -132,7 +139,9 @@ function resolveIconBg(name?: string | null): string {
 
 function resolveIconColor(name?: string | null): string {
   if (!name) return "text-muted-foreground";
-  return iconOverrideColors[name] || iconColors[name] || "text-muted-foreground";
+  return (
+    iconOverrideColors[name] || iconColors[name] || "text-muted-foreground"
+  );
 }
 
 function resolveCategoryStyle(name?: string | null): string {
@@ -156,15 +165,37 @@ export default function TransactionsPage() {
 
   const [dialogOpen, setDialogOpen] = useState(false);
   const [newName, setNewName] = useState("");
-  const [newCategory, setNewCategory] = useState(CATEGORIES.filter((c) => c.type === "expense")[0]?.value ?? "");
+  const [newCategory, setNewCategory] = useState(
+    CATEGORIES.filter((c) => c.type === "expense")[0]?.value ?? "",
+  );
   const [newAmount, setNewAmount] = useState("");
-  const [newType, setNewType] = useState<"pengeluaran" | "pemasukan">("pengeluaran");
-  const [newUser, setNewUser] = useState<"Suami" | "Istri">(activeUser as "Suami" | "Istri");
+  const [newType, setNewType] = useState<"pengeluaran" | "pemasukan">(
+    "pengeluaran",
+  );
+  const [newUser, setNewUser] = useState<"Suami" | "Istri">(
+    activeUser as "Suami" | "Istri",
+  );
   const [newNote, setNewNote] = useState("");
 
   const [editingTx, setEditingTx] = useState<ApiTransaction | null>(null);
-  const [editFields, setEditFields] = useState<{ name: string; category: string; amount: string; type: "pengeluaran" | "pemasukan"; user: "Suami" | "Istri"; note: string }>({ name: "", category: "", amount: "", type: "pengeluaran", user: "Suami", note: "" });
+  const [editFields, setEditFields] = useState<{
+    name: string;
+    category: string;
+    amount: string;
+    type: "pengeluaran" | "pemasukan";
+    user: "Suami" | "Istri";
+    note: string;
+  }>({
+    name: "",
+    category: "",
+    amount: "",
+    type: "pengeluaran",
+    user: "Suami",
+    note: "",
+  });
   const [deletingTx, setDeletingTx] = useState<ApiTransaction | null>(null);
+  const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [openMenuId, setOpenMenuId] = useState<string | null>(null);
 
   const periodQueryMap: Record<string, string> = {
     "Bulan Ini": "month",
@@ -188,7 +219,10 @@ export default function TransactionsPage() {
     setError(null);
     try {
       const params = new URLSearchParams(buildQuery());
-      const data = await cachedFetch<ApiResponse>(`/api/transactions?${params.toString()}`, { bust });
+      const data = await cachedFetch<ApiResponse>(
+        `/api/transactions?${params.toString()}`,
+        { bust },
+      );
       setTransactions(data.transactions ?? []);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Terjadi kesalahan");
@@ -257,7 +291,9 @@ export default function TransactionsPage() {
         setNewName("");
         setNewAmount("");
         setNewNote("");
-        setNewCategory(CATEGORIES.filter((c) => c.type === "expense")[0]?.value ?? "");
+        setNewCategory(
+          CATEGORIES.filter((c) => c.type === "expense")[0]?.value ?? "",
+        );
         setNewType("pengeluaran");
         setCurrentPage(1);
         fetchTransactions(true);
@@ -272,7 +308,9 @@ export default function TransactionsPage() {
 
   function openEditDialog(tx: ApiTransaction) {
     const rawAmount = Math.abs(tx.amount).toString();
-    const formattedAmount = new Intl.NumberFormat("id-ID").format(parseInt(rawAmount, 10));
+    const formattedAmount = new Intl.NumberFormat("id-ID").format(
+      parseInt(rawAmount, 10),
+    );
     setEditingTx(tx);
     setEditFields({
       name: tx.name,
@@ -294,7 +332,8 @@ export default function TransactionsPage() {
       setError("Jumlah harus berupa angka positif");
       return;
     }
-    const finalAmount = editFields.type === "pengeluaran" ? -amountValue : amountValue;
+    const finalAmount =
+      editFields.type === "pengeluaran" ? -amountValue : amountValue;
 
     setSubmitting(true);
     setError(null);
@@ -331,14 +370,16 @@ export default function TransactionsPage() {
   }
 
   function handleDeleteTransaction(id: string) {
-    const tx = transactions.find(t => t.id === id);
+    const tx = transactions.find((t) => t.id === id);
     if (tx) setDeletingTx(tx);
   }
 
   function handleDeleteConfirm() {
     if (!deletingTx) return;
 
-    fetch(`/api/transactions?id=${encodeURIComponent(deletingTx.id)}`, { method: "DELETE" })
+    fetch(`/api/transactions?id=${encodeURIComponent(deletingTx.id)}`, {
+      method: "DELETE",
+    })
       .then(async (res) => {
         if (!res.ok) {
           const text = await res.text();
@@ -379,74 +420,116 @@ export default function TransactionsPage() {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 max-w-full overflow-x-hidden">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">Riwayat Transaksi</h1>
-          <p className="text-sm text-muted-foreground mt-1">
+          <h1 className="text-lg md:text-2xl font-bold tracking-tight">
+            Riwayat Transaksi
+          </h1>
+          <p className="hidden md:block text-sm text-muted-foreground mt-1">
             Kelola dan pantau semua transaksi keuangan keluarga
           </p>
         </div>
-        <Button className="gap-2" onClick={() => setDialogOpen(true)}>
+        <Button
+          variant="outline"
+          className="gap-2 shrink-0 bg-blue-600 text-white"
+          onClick={() => setDialogOpen(true)}
+        >
           <Plus className="h-4 w-4" />
-          Tambah Transaksi
+          <span className="hidden sm:inline">Tambah</span>
         </Button>
       </div>
 
       {/* Filter Bar */}
       <div className="rounded-xl border border-border bg-card overflow-hidden">
-        <div className="p-4 md:p-5 border-b border-border">
-          <div className="flex flex-wrap gap-3 items-center">
-            <div className="flex-1 min-w-[200px]">
+        <div className="p-3 md:p-5 border-b border-border">
+          {/* Mobile: column, Desktop: flex row */}
+          <div className="flex flex-col md:flex-row md:flex-wrap gap-2 md:items-center">
+            {/* Search — full width */}
+            <div className="w-full md:flex-1 md:min-w-[200px] md:w-auto">
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                 <Input
                   placeholder="Cari transaksi..."
                   value={searchQuery}
-                  onChange={(e) => { setSearchQuery(e.target.value); setCurrentPage(1); }}
+                  onChange={(e) => {
+                    setSearchQuery(e.target.value);
+                    setCurrentPage(1);
+                  }}
                   className="pl-9 h-9 text-sm"
                 />
               </div>
             </div>
 
-            <Select value={categoryFilter} onValueChange={(value) => { if (value) { setCategoryFilter(value); setCurrentPage(1); }}}>
-              <SelectTrigger className="h-9 min-w-[150px] text-sm">
-                <SelectValue placeholder="Semua Kategori" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="Semua Kategori">Semua Kategori</SelectItem>
-                {CATEGORIES.filter((c) => c.type === "expense").map((cat) => (
-                  <SelectItem key={cat.value} value={cat.value}>{cat.label}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            {/* Filter row — 2 columns on mobile, inline on desktop */}
+            <div className="grid grid-cols-2 md:flex md:flex-wrap gap-2 md:gap-3 w-full">
+              <Select
+                value={categoryFilter}
+                onValueChange={(value) => {
+                  if (value) {
+                    setCategoryFilter(value);
+                    setCurrentPage(1);
+                  }
+                }}
+              >
+                <SelectTrigger className="h-9 text-sm w-full">
+                  <SelectValue placeholder="Semua Kategori" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="Semua Kategori">Semua Kategori</SelectItem>
+                  {CATEGORIES.filter((c) => c.type === "expense").map((cat) => (
+                    <SelectItem key={cat.value} value={cat.value}>
+                      {cat.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
 
-            <Select value={periodFilter} onValueChange={(value) => value && setPeriodFilter(value)}>
-              <SelectTrigger className="h-9 min-w-[130px] text-sm">
-                <SelectValue placeholder="Bulan Ini" />
-              </SelectTrigger>
-              <SelectContent>
-                {PERIODS.map((p) => (
-                  <SelectItem key={p} value={p}>{p}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+              <Select
+                value={periodFilter}
+                onValueChange={(value) => value && setPeriodFilter(value)}
+              >
+                <SelectTrigger className="h-9 text-sm w-full">
+                  <SelectValue placeholder="Bulan Ini" />
+                </SelectTrigger>
+                <SelectContent>
+                  {PERIODS.map((p) => (
+                    <SelectItem key={p} value={p}>
+                      {p}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
 
-            <Select value={userFilter} onValueChange={(value) => { if (value) { setUserFilter(value); setCurrentPage(1); }}}>
-              <SelectTrigger className="h-9 min-w-[130px] text-sm">
-                <SelectValue placeholder="Semua User" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="Semua User">Semua User</SelectItem>
-                <SelectItem value="Suami">Suami</SelectItem>
-                <SelectItem value="Istri">Istri</SelectItem>
-              </SelectContent>
-            </Select>
+              <Select
+                value={userFilter}
+                onValueChange={(value) => {
+                  if (value) {
+                    setUserFilter(value);
+                    setCurrentPage(1);
+                  }
+                }}
+              >
+                <SelectTrigger className="h-9 text-sm w-full">
+                  <SelectValue placeholder="Semua User" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="Semua User">Semua User</SelectItem>
+                  <SelectItem value="Suami">Suami</SelectItem>
+                  <SelectItem value="Istri">Istri</SelectItem>
+                </SelectContent>
+              </Select>
 
-            <Button variant="secondary" size="sm" className="h-9" onClick={resetFilter}>
-              Filter
-            </Button>
+              <Button
+                variant="secondary"
+                size="sm"
+                className="h-9 w-full md:w-auto"
+                onClick={resetFilter}
+              >
+                Filter
+              </Button>
+            </div>
           </div>
         </div>
 
@@ -454,31 +537,59 @@ export default function TransactionsPage() {
         {error && (
           <div className="p-4 text-sm text-red-600 dark:text-red-400">
             {error}
-            <button type="button" className="ml-3 underline" onClick={() => setError(null)}>Tutup</button>
+            <button
+              type="button"
+              className="ml-3 underline"
+              onClick={() => setError(null)}
+            >
+              Tutup
+            </button>
           </div>
         )}
 
-        {/* Table */}
-        <div className="overflow-x-auto">
-          <Table>
+        {/* Desktop Table — lg+ */}
+        <div className="hidden lg:block overflow-x-auto">
+          <Table className="table-fixed">
             <TableHeader>
               <TableRow className="bg-muted/50">
-                <TableHead className="text-xs font-semibold text-muted-foreground uppercase w-[30%]">Transaksi</TableHead>
-                <TableHead className="text-xs font-semibold text-muted-foreground uppercase hidden md:table-cell">Kategori</TableHead>
-                <TableHead className="text-xs font-semibold text-muted-foreground uppercase hidden sm:table-cell">Tanggal</TableHead>
-                <TableHead className="text-xs font-semibold text-muted-foreground uppercase hidden lg:table-cell">User</TableHead>
-                <TableHead className="text-xs font-semibold text-muted-foreground uppercase text-right">Jumlah</TableHead>
-                <TableHead className="text-xs font-semibold text-muted-foreground uppercase text-right w-[70px]">Aksi</TableHead>
+                <TableHead className="text-xs font-semibold text-muted-foreground uppercase w-[30%]">
+                  Transaksi
+                </TableHead>
+                <TableHead className="text-xs font-semibold text-muted-foreground uppercase w-[18%]">
+                  Kategori
+                </TableHead>
+                <TableHead className="text-xs font-semibold text-muted-foreground uppercase w-[15%]">
+                  Tanggal
+                </TableHead>
+                <TableHead className="text-xs font-semibold text-muted-foreground uppercase w-[12%]">
+                  User
+                </TableHead>
+                <TableHead className="text-xs font-semibold text-muted-foreground uppercase text-right w-[18%]">
+                  Jumlah
+                </TableHead>
+                <TableHead className="text-xs font-semibold text-muted-foreground uppercase text-right w-[70px]">
+                  Aksi
+                </TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {loading ? (
                 <TableRow>
-                  <TableCell colSpan={6} className="text-center py-12 text-muted-foreground">Memuat data...</TableCell>
+                  <TableCell
+                    colSpan={6}
+                    className="text-center py-12 text-muted-foreground"
+                  >
+                    Memuat data...
+                  </TableCell>
                 </TableRow>
               ) : paginated.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={6} className="text-center py-12 text-muted-foreground">Tidak ada transaksi yang ditemukan</TableCell>
+                  <TableCell
+                    colSpan={6}
+                    className="text-center py-12 text-muted-foreground"
+                  >
+                    Tidak ada transaksi yang ditemukan
+                  </TableCell>
                 </TableRow>
               ) : (
                 paginated.map((tx) => {
@@ -486,58 +597,102 @@ export default function TransactionsPage() {
                   const bg = resolveIconBg(tx.category);
                   const color = resolveIconColor(tx.category);
                   const style = resolveCategoryStyle(tx.category);
+                  const isMenuOpen = openMenuId === tx.id;
                   return (
-                    <TableRow key={tx.id} className="hover:bg-muted/30 transition-colors">
+                    <TableRow
+                      key={tx.id}
+                      className="hover:bg-muted/30 transition-colors"
+                    >
                       <TableCell>
                         <div className="flex items-center gap-3">
-                          <div className={`w-9 h-9 rounded-full ${bg} flex items-center justify-center shrink-0`}>
+                          <div
+                            className={`w-9 h-9 rounded-full ${bg} flex items-center justify-center shrink-0`}
+                          >
                             <Icon className={`h-4 w-4 ${color}`} />
                           </div>
-                          <div className="min-w-0">
-                            <span className="text-sm font-medium truncate max-w-[180px] block">{tx.name}</span>
+                          <div className="min-w-0 flex-1">
+                            <span className="text-sm font-medium block truncate">
+                              {tx.name}
+                            </span>
                             {tx.note && (
-                              <span className="text-[11px] text-muted-foreground truncate max-w-[180px] block leading-tight mt-0.5">
+                              <span className="text-[11px] text-muted-foreground truncate block leading-tight mt-0.5">
                                 📝 {tx.note}
                               </span>
                             )}
                           </div>
                         </div>
                       </TableCell>
-                      <TableCell className="hidden md:table-cell">
-                        <Badge variant="secondary" className={`text-[10px] font-bold uppercase px-2 py-0.5 ${style}`}>
+                      <TableCell>
+                        <Badge
+                          variant="secondary"
+                          className={`text-[10px] font-bold uppercase px-2 py-0.5 ${style}`}
+                        >
                           {tx.category}
                         </Badge>
                       </TableCell>
-                      <TableCell className="text-sm text-muted-foreground hidden sm:table-cell">{formatDateDisplay(tx.date)}</TableCell>
-                      <TableCell className="hidden lg:table-cell">
+                      <TableCell className="text-sm text-muted-foreground">
+                        {formatDateDisplay(tx.date)}
+                      </TableCell>
+                      <TableCell>
                         <div className="flex items-center gap-2">
-                          <div className={`w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold ${tx.user === "Suami" ? "bg-primary/10 text-primary" : "bg-orange-500/10 text-orange-500"}`}>
+                          <div
+                            className={`w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold ${tx.user === "Suami" ? "bg-primary/10 text-primary" : "bg-orange-500/10 text-orange-500"}`}
+                          >
                             {tx.user === "Suami" ? "S" : "I"}
                           </div>
-                          <span className="text-sm text-muted-foreground">{tx.user}</span>
+                          <span className="text-sm text-muted-foreground">
+                            {tx.user}
+                          </span>
                         </div>
                       </TableCell>
-                      <TableCell className={`text-right text-sm font-semibold ${tx.amount >= 0 ? "text-secondary" : "text-foreground"}`}>
+                      <TableCell
+                        className={`text-right text-sm font-semibold ${tx.amount >= 0 ? "text-emerald-600" : ""}`}
+                      >
                         <span className="whitespace-nowrap">
-                          {tx.amount >= 0 ? "+" : ""}{formatRupiah(tx.amount)}
+                          {tx.amount >= 0 ? "+" : ""}
+                          {formatRupiah(tx.amount)}
                         </span>
                       </TableCell>
                       <TableCell className="text-right">
-                        <div className="flex gap-1 justify-end">
+                        <div className="relative inline-flex">
                           <button
-                            onClick={() => openEditDialog(tx)}
-                            className="p-1 text-muted-foreground hover:text-primary transition-colors text-sm"
-                            title="Edit"
+                            onClick={() =>
+                              setOpenMenuId(isMenuOpen ? null : tx.id)
+                            }
+                            className="w-8 h-8 flex items-center justify-center rounded-lg text-muted-foreground hover:bg-muted transition-colors text-lg"
+                            aria-label="Menu"
                           >
-                            ✎
+                            ⋮
                           </button>
-                          <button
-                            onClick={() => handleDeleteTransaction(tx.id)}
-                            className="p-1 text-muted-foreground hover:text-destructive transition-colors text-sm"
-                            title="Hapus"
-                          >
-                            🗑
-                          </button>
+                          {isMenuOpen && (
+                            <>
+                              <div
+                                className="fixed inset-0 z-40"
+                                onClick={() => setOpenMenuId(null)}
+                              />
+                              <div className="absolute right-0 top-8 z-50 w-36 bg-popover border border-border rounded-xl shadow-lg py-1.5">
+                                <button
+                                  onClick={() => {
+                                    setOpenMenuId(null);
+                                    openEditDialog(tx);
+                                  }}
+                                  className="w-full flex items-center gap-2.5 px-3.5 py-2.5 text-sm text-foreground hover:bg-muted transition-colors"
+                                >
+                                  ✎ Edit
+                                </button>
+                                <div className="h-px bg-border/50 mx-3" />
+                                <button
+                                  onClick={() => {
+                                    setOpenMenuId(null);
+                                    handleDeleteTransaction(tx.id);
+                                  }}
+                                  className="w-full flex items-center gap-2.5 px-3.5 py-2.5 text-sm text-destructive hover:bg-destructive/5 transition-colors"
+                                >
+                                  🗑 Hapus
+                                </button>
+                              </div>
+                            </>
+                          )}
                         </div>
                       </TableCell>
                     </TableRow>
@@ -548,11 +703,162 @@ export default function TransactionsPage() {
           </Table>
         </div>
 
+        {/* Mobile Cards — < lg */}
+        <div className="lg:hidden px-3 pb-2 max-w-full overflow-hidden">
+          {loading ? (
+            <div className="text-center py-16 text-muted-foreground text-sm">
+              Memuat data...
+            </div>
+          ) : paginated.length === 0 ? (
+            <div className="text-center py-16">
+              <div className="text-4xl mb-3">📭</div>
+              <p className="text-sm font-medium text-foreground">
+                Belum ada transaksi
+              </p>
+              <p className="text-xs text-muted-foreground mt-1">
+                Tekan tombol (+) untuk menambahkan transaksi pertama
+              </p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-2 md:gap-3">
+              {paginated.map((tx) => {
+                const Icon = resolveCategoryIcon(tx.category);
+                const bg = resolveIconBg(tx.category);
+                const color = resolveIconColor(tx.category);
+                const style = resolveCategoryStyle(tx.category);
+                const isExpanded = expandedId === tx.id;
+                const isMenuOpen = openMenuId === tx.id;
+                return (
+                  <div
+                    key={tx.id}
+                    className="bg-card rounded-xl border border-border/60 shadow-sm overflow-hidden"
+                  >
+                    {/* Card Body — click to expand/tap */}
+                    <div
+                      className="p-3.5 md:p-4 cursor-pointer active:bg-muted/20 transition-colors"
+                      onClick={() => setExpandedId(isExpanded ? null : tx.id)}
+                    >
+                      {/* Row 1: Icon + Nama + Tanggal + ⋮ */}
+                      <div className="flex items-start gap-2.5">
+                        <div
+                          className={`w-10 h-10 rounded-full ${bg} flex items-center justify-center shrink-0 mt-0.5`}
+                        >
+                          <Icon className={`h-5 w-5 ${color}`} />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-semibold text-foreground leading-snug">
+                            {tx.name}
+                          </p>
+                        </div>
+                        <div className="flex items-center gap-1 shrink-0">
+                          <span className="text-[11px] text-muted-foreground whitespace-nowrap">
+                            {formatDateDisplay(tx.date)}
+                          </span>
+                          {/* ⋮ Menu */}
+                          <div className="relative">
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setOpenMenuId(isMenuOpen ? null : tx.id);
+                              }}
+                              className="w-9 h-9 flex items-center justify-center rounded-lg text-muted-foreground hover:bg-muted transition-colors text-lg"
+                              aria-label="Menu"
+                            >
+                              ⋮
+                            </button>
+                            {isMenuOpen && (
+                              <>
+                                <div
+                                  className="fixed inset-0 z-40"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setOpenMenuId(null);
+                                  }}
+                                />
+                                <div className="absolute right-0 top-10 z-50 w-36 bg-popover border border-border/60 rounded-xl shadow-lg py-1.5">
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setOpenMenuId(null);
+                                      openEditDialog(tx);
+                                    }}
+                                    className="w-full flex items-center gap-2.5 px-3.5 py-2.5 text-sm text-foreground hover:bg-muted transition-colors"
+                                  >
+                                    ✎ Edit
+                                  </button>
+                                  <div className="h-px bg-border/50 mx-3" />
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setOpenMenuId(null);
+                                      handleDeleteTransaction(tx.id);
+                                    }}
+                                    className="w-full flex items-center gap-2.5 px-3.5 py-2.5 text-sm text-destructive hover:bg-destructive/5 transition-colors"
+                                  >
+                                    🗑 Hapus
+                                  </button>
+                                </div>
+                              </>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                      {/* Row 2: Kategori */}
+                      <div className="flex items-center gap-2 mt-2.5">
+                        <span
+                          className={`text-[10px] font-semibold uppercase tracking-wide px-2 py-0.5 rounded-full leading-none ${style}`}
+                        >
+                          {tx.category}
+                        </span>
+                      </div>
+                      {/* Row 3: Rupiah */}
+                      <div className="mt-1.5">
+                        <span
+                          className={`text-sm font-bold ${tx.amount >= 0 ? "text-emerald-600" : "text-red-600"}`}
+                        >
+                          {tx.amount >= 0 ? "+" : ""}
+                          {formatRupiah(tx.amount)}
+                        </span>
+                      </div>
+                    </div>
+                    {/* Expanded Detail */}
+                    {isExpanded && (
+                      <div className="border-t border-border/60 px-4 py-3 bg-muted/10 space-y-2.5 animate-in slide-in-from-top-1 duration-150">
+                        {tx.note && (
+                          <p className="text-[13px] text-muted-foreground leading-relaxed">
+                            📝 {tx.note}
+                          </p>
+                        )}
+                        <div className="flex items-center justify-between text-xs">
+                          <span className="text-muted-foreground">
+                            Dicatat oleh
+                          </span>
+                          <div className="flex items-center gap-1.5">
+                            <div
+                              className={`w-5 h-5 rounded-full flex items-center justify-center text-[9px] font-bold ${tx.user === "Suami" ? "bg-primary/10 text-primary" : "bg-orange-500/10 text-orange-500"}`}
+                            >
+                              {tx.user === "Suami" ? "S" : "I"}
+                            </div>
+                            <span className="text-foreground">{tx.user}</span>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+
         {/* Pagination */}
         <div className="p-4 border-t border-border flex flex-wrap items-center justify-between gap-3">
           <span className="text-sm text-muted-foreground">
-            Menampilkan {paginated.length > 0 ? (safePage - 1) * ITEMS_PER_PAGE + 1 : 0}
-            {" — "}{Math.min(safePage * ITEMS_PER_PAGE, filtered.length)} dari {filtered.length} transaksi
+            Menampilkan{" "}
+            {paginated.length > 0 ? (safePage - 1) * ITEMS_PER_PAGE + 1 : 0}
+            {" — "}
+            {Math.min(safePage * ITEMS_PER_PAGE, filtered.length)} dari{" "}
+            {filtered.length} transaksi
           </span>
           <div className="flex items-center gap-1.5">
             <button
@@ -564,13 +870,20 @@ export default function TransactionsPage() {
             </button>
             {getPageNumbers().map((page, idx) =>
               page === "ellipsis" ? (
-                <span key={`e-${idx}`} className="px-1 text-muted-foreground text-xs">...</span>
+                <span
+                  key={`e-${idx}`}
+                  className="px-1 text-muted-foreground text-xs"
+                >
+                  ...
+                </span>
               ) : (
                 <button
                   key={page}
                   className={`px-3 py-1 rounded-lg text-xs font-medium transition-colors ${safePage === page ? "bg-primary text-primary-foreground shadow-sm" : "border border-border text-muted-foreground hover:bg-accent"}`}
                   onClick={() => setCurrentPage(page)}
-                >{page}</button>
+                >
+                  {page}
+                </button>
               ),
             )}
             <button
@@ -589,37 +902,66 @@ export default function TransactionsPage() {
         <DialogContent className="sm:max-w-[425px]">
           <DialogHeader>
             <DialogTitle>Tambah Transaksi</DialogTitle>
-            <DialogDescription>Catat pemasukan atau pengeluaran baru</DialogDescription>
+            <DialogDescription>
+              Catat pemasukan atau pengeluaran baru
+            </DialogDescription>
           </DialogHeader>
           <div className="grid gap-4 py-4">
             <div className="grid gap-2">
               <label className="text-sm font-medium">Nama Transaksi</label>
-              <Input placeholder="Mis: Gaji Bulanan, Makan Siang..." value={newName} onChange={(e) => setNewName(e.target.value)} />
+              <Input
+                placeholder="Mis: Gaji Bulanan, Makan Siang..."
+                value={newName}
+                onChange={(e) => setNewName(e.target.value)}
+              />
             </div>
             <div className="grid gap-2">
               <label className="text-sm font-medium">Tipe</label>
               <div className="flex gap-2">
                 <button
                   type="button"
-                  onClick={() => { setNewType("pengeluaran"); setNewCategory(CATEGORIES.find((c) => c.type === "expense")?.value ?? ""); }}
+                  onClick={() => {
+                    setNewType("pengeluaran");
+                    setNewCategory(
+                      CATEGORIES.find((c) => c.type === "expense")?.value ?? "",
+                    );
+                  }}
                   className={`flex-1 py-2 rounded-lg text-sm font-medium transition-colors ${newType === "pengeluaran" ? "bg-destructive/10 text-destructive border border-destructive/30" : "bg-muted text-muted-foreground border border-border"}`}
-                >Pengeluaran</button>
+                >
+                  Pengeluaran
+                </button>
                 <button
                   type="button"
-                  onClick={() => { setNewType("pemasukan"); setNewCategory(CATEGORIES.find((c) => c.type === "income")?.value ?? ""); }}
+                  onClick={() => {
+                    setNewType("pemasukan");
+                    setNewCategory(
+                      CATEGORIES.find((c) => c.type === "income")?.value ?? "",
+                    );
+                  }}
                   className={`flex-1 py-2 rounded-lg text-sm font-medium transition-colors ${newType === "pemasukan" ? "bg-secondary/10 text-secondary border border-secondary/30" : "bg-muted text-muted-foreground border border-border"}`}
-                >Pemasukan</button>
+                >
+                  Pemasukan
+                </button>
               </div>
             </div>
             <div className="grid gap-2">
               <label className="text-sm font-medium">Kategori</label>
-              <Select value={newCategory} onValueChange={(value) => value && setNewCategory(value)}>
+              <Select
+                value={newCategory}
+                onValueChange={(value) => value && setNewCategory(value)}
+              >
                 <SelectTrigger className="h-9 w-full text-sm">
                   <SelectValue placeholder="Pilih kategori" />
                 </SelectTrigger>
                 <SelectContent>
-                  {CATEGORIES.filter((cat) => cat.type === (newType === "pengeluaran" ? "expense" : "income")).map((cat) => (
-                    <SelectItem key={cat.value} value={cat.value}>{cat.label}</SelectItem>
+                  {CATEGORIES.filter(
+                    (cat) =>
+                      cat.type ===
+                      (newType === "pengeluaran" ? "expense" : "income"),
+                  ).map((cat) => (
+                    <SelectItem key={cat.value} value={cat.value}>
+                      {cat.label}
+                    </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
@@ -627,32 +969,56 @@ export default function TransactionsPage() {
             <div className="grid gap-2">
               <label className="text-sm font-medium">Jumlah (Rp)</label>
               <Input
-                type="text" inputMode="numeric" placeholder="1.000.000"
+                type="text"
+                inputMode="numeric"
+                placeholder="1.000.000"
                 value={newAmount}
                 onChange={(e) => {
                   const raw = e.target.value.replace(/[^0-9]/g, "");
                   if (raw === "") setNewAmount("");
-                  else setNewAmount(new Intl.NumberFormat("id-ID").format(parseInt(raw, 10)));
+                  else
+                    setNewAmount(
+                      new Intl.NumberFormat("id-ID").format(parseInt(raw, 10)),
+                    );
                 }}
               />
             </div>
             <div className="grid gap-2">
               <label className="text-sm font-medium">Dicatat oleh</label>
               <div className="flex gap-2">
-                <button type="button" onClick={() => setNewUser("Suami")}
-                  className={`flex-1 py-2 rounded-lg text-sm font-medium transition-colors ${newUser === "Suami" ? "bg-primary/10 text-primary border border-primary/30" : "bg-muted text-muted-foreground border border-border"}`}>Suami</button>
-                <button type="button" onClick={() => setNewUser("Istri")}
-                  className={`flex-1 py-2 rounded-lg text-sm font-medium transition-colors ${newUser === "Istri" ? "bg-primary/10 text-primary border border-primary/30" : "bg-muted text-muted-foreground border border-border"}`}>Istri</button>
+                <button
+                  type="button"
+                  onClick={() => setNewUser("Suami")}
+                  className={`flex-1 py-2 rounded-lg text-sm font-medium transition-colors ${newUser === "Suami" ? "bg-primary/10 text-primary border border-primary/30" : "bg-muted text-muted-foreground border border-border"}`}
+                >
+                  Suami
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setNewUser("Istri")}
+                  className={`flex-1 py-2 rounded-lg text-sm font-medium transition-colors ${newUser === "Istri" ? "bg-primary/10 text-primary border border-primary/30" : "bg-muted text-muted-foreground border border-border"}`}
+                >
+                  Istri
+                </button>
               </div>
             </div>
             <div className="grid gap-2">
               <label className="text-sm font-medium">Catatan (opsional)</label>
-              <Input placeholder="Mis: kebutuhan bulanan..." value={newNote} onChange={(e) => setNewNote(e.target.value)} />
+              <Input
+                placeholder="Mis: kebutuhan bulanan..."
+                value={newNote}
+                onChange={(e) => setNewNote(e.target.value)}
+              />
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setDialogOpen(false)}>Batal</Button>
-            <Button onClick={handleAddTransaction} disabled={submitting || !newName.trim() || !newAmount.trim()}>
+            <Button variant="outline" onClick={() => setDialogOpen(false)}>
+              Batal
+            </Button>
+            <Button
+              onClick={handleAddTransaction}
+              disabled={submitting || !newName.trim() || !newAmount.trim()}
+            >
               {submitting ? "Menyimpan..." : "Simpan Transaksi"}
             </Button>
           </DialogFooter>
@@ -667,28 +1033,80 @@ export default function TransactionsPage() {
 
             <div className="grid gap-2">
               <label className="text-sm font-medium">Nama Transaksi</label>
-              <Input value={editFields.name} onChange={(e) => setEditFields(prev => ({ ...prev, name: e.target.value }))} />
+              <Input
+                value={editFields.name}
+                onChange={(e) =>
+                  setEditFields((prev) => ({ ...prev, name: e.target.value }))
+                }
+              />
             </div>
 
             <div className="grid gap-2">
               <label className="text-sm font-medium">Tipe</label>
               <div className="flex gap-2">
-                <button type="button" onClick={() => setEditFields(prev => ({ ...prev, type: "pengeluaran", category: CATEGORIES.find((c) => c.type === "expense")?.value ?? "" }))}
-                  className={editFields.type === "pengeluaran" ? "flex-1 py-2 rounded-lg text-sm font-medium bg-destructive/10 text-destructive border border-destructive/30" : "flex-1 py-2 rounded-lg text-sm font-medium bg-muted text-muted-foreground border border-border"}>Pengeluaran</button>
-                <button type="button" onClick={() => setEditFields(prev => ({ ...prev, type: "pemasukan", category: CATEGORIES.find((c) => c.type === "income")?.value ?? "" }))}
-                  className={editFields.type === "pemasukan" ? "flex-1 py-2 rounded-lg text-sm font-medium bg-secondary/10 text-secondary border border-secondary/30" : "flex-1 py-2 rounded-lg text-sm font-medium bg-muted text-muted-foreground border border-border"}>Pemasukan</button>
+                <button
+                  type="button"
+                  onClick={() =>
+                    setEditFields((prev) => ({
+                      ...prev,
+                      type: "pengeluaran",
+                      category:
+                        CATEGORIES.find((c) => c.type === "expense")?.value ??
+                        "",
+                    }))
+                  }
+                  className={
+                    editFields.type === "pengeluaran"
+                      ? "flex-1 py-2 rounded-lg text-sm font-medium bg-destructive/10 text-destructive border border-destructive/30"
+                      : "flex-1 py-2 rounded-lg text-sm font-medium bg-muted text-muted-foreground border border-border"
+                  }
+                >
+                  Pengeluaran
+                </button>
+                <button
+                  type="button"
+                  onClick={() =>
+                    setEditFields((prev) => ({
+                      ...prev,
+                      type: "pemasukan",
+                      category:
+                        CATEGORIES.find((c) => c.type === "income")?.value ??
+                        "",
+                    }))
+                  }
+                  className={
+                    editFields.type === "pemasukan"
+                      ? "flex-1 py-2 rounded-lg text-sm font-medium bg-secondary/10 text-secondary border border-secondary/30"
+                      : "flex-1 py-2 rounded-lg text-sm font-medium bg-muted text-muted-foreground border border-border"
+                  }
+                >
+                  Pemasukan
+                </button>
               </div>
             </div>
 
             <div className="grid gap-2">
               <label className="text-sm font-medium">Kategori</label>
-              <Select value={editFields.category} onValueChange={(value) => setEditFields(prev => ({ ...prev, category: value ?? "" }))}>
+              <Select
+                value={editFields.category}
+                onValueChange={(value) =>
+                  setEditFields((prev) => ({ ...prev, category: value ?? "" }))
+                }
+              >
                 <SelectTrigger className="h-9 w-full text-sm">
                   <SelectValue placeholder="Pilih kategori" />
                 </SelectTrigger>
                 <SelectContent>
-                  {CATEGORIES.filter((cat) => cat.type === (editFields.type === "pengeluaran" ? "expense" : "income")).map((cat) => (
-                    <SelectItem key={cat.value} value={cat.value}>{cat.label}</SelectItem>
+                  {CATEGORIES.filter(
+                    (cat) =>
+                      cat.type ===
+                      (editFields.type === "pengeluaran"
+                        ? "expense"
+                        : "income"),
+                  ).map((cat) => (
+                    <SelectItem key={cat.value} value={cat.value}>
+                      {cat.label}
+                    </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
@@ -696,32 +1114,81 @@ export default function TransactionsPage() {
 
             <div className="grid gap-2">
               <label className="text-sm font-medium">Jumlah (Rp)</label>
-              <Input type="text" inputMode="numeric" placeholder="1.000.000" value={editFields.amount}
+              <Input
+                type="text"
+                inputMode="numeric"
+                placeholder="1.000.000"
+                value={editFields.amount}
                 onChange={(e) => {
                   const raw = e.target.value.replace(/[^0-9]/g, "");
-                  if (raw === "") setEditFields(prev => ({ ...prev, amount: "" }));
-                  else setEditFields(prev => ({ ...prev, amount: new Intl.NumberFormat("id-ID").format(parseInt(raw, 10)) }));
-                }} />
+                  if (raw === "")
+                    setEditFields((prev) => ({ ...prev, amount: "" }));
+                  else
+                    setEditFields((prev) => ({
+                      ...prev,
+                      amount: new Intl.NumberFormat("id-ID").format(
+                        parseInt(raw, 10),
+                      ),
+                    }));
+                }}
+              />
             </div>
 
             <div className="grid gap-2">
               <label className="text-sm font-medium">Dicatat oleh</label>
               <div className="flex gap-2">
-                <button type="button" onClick={() => setEditFields(prev => ({ ...prev, user: "Suami" }))}
-                  className={editFields.user === "Suami" ? "flex-1 py-2 rounded-lg text-sm font-medium bg-primary/10 text-primary border border-primary/30" : "flex-1 py-2 rounded-lg text-sm font-medium bg-muted text-muted-foreground border border-border"}>Suami</button>
-                <button type="button" onClick={() => setEditFields(prev => ({ ...prev, user: "Istri" }))}
-                  className={editFields.user === "Istri" ? "flex-1 py-2 rounded-lg text-sm font-medium bg-primary/10 text-primary border border-primary/30" : "flex-1 py-2 rounded-lg text-sm font-medium bg-muted text-muted-foreground border border-border"}>Istri</button>
+                <button
+                  type="button"
+                  onClick={() =>
+                    setEditFields((prev) => ({ ...prev, user: "Suami" }))
+                  }
+                  className={
+                    editFields.user === "Suami"
+                      ? "flex-1 py-2 rounded-lg text-sm font-medium bg-primary/10 text-primary border border-primary/30"
+                      : "flex-1 py-2 rounded-lg text-sm font-medium bg-muted text-muted-foreground border border-border"
+                  }
+                >
+                  Suami
+                </button>
+                <button
+                  type="button"
+                  onClick={() =>
+                    setEditFields((prev) => ({ ...prev, user: "Istri" }))
+                  }
+                  className={
+                    editFields.user === "Istri"
+                      ? "flex-1 py-2 rounded-lg text-sm font-medium bg-primary/10 text-primary border border-primary/30"
+                      : "flex-1 py-2 rounded-lg text-sm font-medium bg-muted text-muted-foreground border border-border"
+                  }
+                >
+                  Istri
+                </button>
               </div>
             </div>
 
             <div className="grid gap-2">
               <label className="text-sm font-medium">Catatan (opsional)</label>
-              <Input placeholder="Catatan..." value={editFields.note} onChange={(e) => setEditFields(prev => ({ ...prev, note: e.target.value }))} />
+              <Input
+                placeholder="Catatan..."
+                value={editFields.note}
+                onChange={(e) =>
+                  setEditFields((prev) => ({ ...prev, note: e.target.value }))
+                }
+              />
             </div>
 
             <div className="flex items-center justify-end gap-3 pt-2">
-              <Button variant="outline" onClick={() => setEditingTx(null)}>Batal</Button>
-              <Button onClick={handleEditSave} disabled={submitting || !editFields.name.trim() || !editFields.amount.trim()}>
+              <Button variant="outline" onClick={() => setEditingTx(null)}>
+                Batal
+              </Button>
+              <Button
+                onClick={handleEditSave}
+                disabled={
+                  submitting ||
+                  !editFields.name.trim() ||
+                  !editFields.amount.trim()
+                }
+              >
                 {submitting ? "Menyimpan..." : "Simpan"}
               </Button>
             </div>
@@ -747,7 +1214,8 @@ export default function TransactionsPage() {
             <div className="bg-muted/50 rounded-lg p-3 text-sm">
               <span className="font-medium">{deletingTx.name}</span>
               <span className="text-muted-foreground ml-2">
-                — {deletingTx.amount >= 0 ? "+" : ""}{formatRupiah(deletingTx.amount)}
+                — {deletingTx.amount >= 0 ? "+" : ""}
+                {formatRupiah(deletingTx.amount)}
               </span>
             </div>
             <div className="flex items-center justify-end gap-3 pt-1">

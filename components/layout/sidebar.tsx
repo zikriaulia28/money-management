@@ -62,7 +62,7 @@ export function Sidebar() {
 
       {/* Mobile Bottom Nav */}
       <nav className="lg:hidden fixed bottom-0 left-0 right-0 z-50 bg-card border-t border-border px-2 pb-safe">
-        <div className="flex items-center justify-around py-1">
+        <div className="flex items-center justify-around py-1.5">
           {navItems.map((item) => {
             const Icon = item.icon;
             const isActive = pathname === item.href;
@@ -71,7 +71,7 @@ export function Sidebar() {
                 key={item.href}
                 href={item.href}
                 className={cn(
-                  "flex flex-col items-center gap-0.5 px-3 py-1.5 rounded-lg transition-colors min-w-[56px]",
+                  "flex flex-col items-center gap-0.5 px-3 py-2 rounded-lg transition-colors min-w-[56px]",
                   isActive
                     ? "text-primary"
                     : "text-muted-foreground"
@@ -87,7 +87,7 @@ export function Sidebar() {
 
       {/* Mobile FAB */}
       <Link href="/transactions">
-        <button className="lg:hidden fixed right-5 bottom-20 w-12 h-12 bg-primary text-primary-foreground rounded-full shadow-xl flex items-center justify-center z-50 active:scale-90 transition-transform hover:opacity-90">
+        <button className="lg:hidden fixed right-5 bottom-[72px] w-12 h-12 bg-primary text-primary-foreground rounded-full shadow-xl flex items-center justify-center z-50 active:scale-90 transition-transform hover:opacity-90">
           <Plus className="h-6 w-6" />
         </button>
       </Link>
