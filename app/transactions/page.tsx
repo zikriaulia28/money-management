@@ -463,7 +463,7 @@ export default function TransactionsPage() {
             </div>
 
             {/* Filter row — 2 columns on mobile, inline on desktop */}
-            <div className="grid grid-cols-2 md:flex md:flex-wrap gap-2 md:gap-3 w-full">
+            <div className="grid grid-cols-2 md:flex md:flex-wrap gap-2 md:gap-3 w-full md:w-auto">
               <Select
                 value={categoryFilter}
                 onValueChange={(value) => {
@@ -473,7 +473,7 @@ export default function TransactionsPage() {
                   }
                 }}
               >
-                <SelectTrigger className="h-9 text-sm w-full">
+                <SelectTrigger className="h-9 text-sm w-full md:w-[160px]">
                   <SelectValue placeholder="Semua Kategori" />
                 </SelectTrigger>
                 <SelectContent>
@@ -490,7 +490,7 @@ export default function TransactionsPage() {
                 value={periodFilter}
                 onValueChange={(value) => value && setPeriodFilter(value)}
               >
-                <SelectTrigger className="h-9 text-sm w-full">
+                <SelectTrigger className="h-9 text-sm w-full md:w-[130px]">
                   <SelectValue placeholder="Bulan Ini" />
                 </SelectTrigger>
                 <SelectContent>
@@ -511,7 +511,7 @@ export default function TransactionsPage() {
                   }
                 }}
               >
-                <SelectTrigger className="h-9 text-sm w-full">
+                <SelectTrigger className="h-9 text-sm w-full md:w-[130px]">
                   <SelectValue placeholder="Semua User" />
                 </SelectTrigger>
                 <SelectContent>
@@ -527,7 +527,7 @@ export default function TransactionsPage() {
                 className="h-9 w-full md:w-auto"
                 onClick={resetFilter}
               >
-                Filter
+                Reset
               </Button>
             </div>
           </div>
@@ -775,7 +775,7 @@ export default function TransactionsPage() {
                                     setOpenMenuId(null);
                                   }}
                                 />
-                                <div className="absolute right-0 top-10 z-50 w-36 bg-popover border border-border/60 rounded-xl shadow-lg py-1.5">
+                                <div className="absolute right-0 top-0 z-50 w-36 bg-popover border border-border/60 rounded-xl shadow-lg py-1.5">
                                   <button
                                     onClick={(e) => {
                                       e.stopPropagation();
@@ -866,26 +866,31 @@ export default function TransactionsPage() {
               disabled={safePage <= 1}
               onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
             >
-              Previous
+              Prev
             </button>
-            {getPageNumbers().map((page, idx) =>
-              page === "ellipsis" ? (
-                <span
-                  key={`e-${idx}`}
-                  className="px-1 text-muted-foreground text-xs"
-                >
-                  ...
-                </span>
-              ) : (
-                <button
-                  key={page}
-                  className={`px-3 py-1 rounded-lg text-xs font-medium transition-colors ${safePage === page ? "bg-primary text-primary-foreground shadow-sm" : "border border-border text-muted-foreground hover:bg-accent"}`}
-                  onClick={() => setCurrentPage(page)}
-                >
-                  {page}
-                </button>
-              ),
-            )}
+            <div className="hidden sm:flex items-center gap-1.5">
+              {getPageNumbers().map((page, idx) =>
+                page === "ellipsis" ? (
+                  <span
+                    key={`e-${idx}`}
+                    className="px-1 text-muted-foreground text-xs"
+                  >
+                    ...
+                  </span>
+                ) : (
+                  <button
+                    key={page}
+                    className={`px-3 py-1 rounded-lg text-xs font-medium transition-colors ${safePage === page ? "bg-primary text-primary-foreground shadow-sm" : "border border-border text-muted-foreground hover:bg-accent"}`}
+                    onClick={() => setCurrentPage(page)}
+                  >
+                    {page}
+                  </button>
+                ),
+              )}
+            </div>
+            <span className="sm:hidden text-xs font-medium text-muted-foreground px-2">
+              {safePage} / {totalPages}
+            </span>
             <button
               className="px-3 py-1 border border-border rounded-lg text-xs font-medium text-muted-foreground hover:bg-accent transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
               disabled={safePage >= totalPages}
@@ -906,7 +911,7 @@ export default function TransactionsPage() {
               Catat pemasukan atau pengeluaran baru
             </DialogDescription>
           </DialogHeader>
-          <div className="grid gap-4 py-4">
+          <div className="grid gap-4 py-4 max-h-[60vh] overflow-y-auto pr-1">
             <div className="grid gap-2">
               <label className="text-sm font-medium">Nama Transaksi</label>
               <Input
@@ -1026,11 +1031,15 @@ export default function TransactionsPage() {
       </Dialog>
 
       {/* Modal Edit */}
-      {editingTx && (
-        <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4">
-          <div className="bg-card rounded-xl border border-border shadow-lg max-w-md w-full p-6 space-y-5">
-            <h2 className="text-lg font-semibold">Edit Transaksi</h2>
-
+      <Dialog open={!!editingTx} onOpenChange={(open) => !open && setEditingTx(null)}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle>Edit Transaksi</DialogTitle>
+            <DialogDescription>
+              Ubah rincian transaksi yang dipilih
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4 max-h-[60vh] overflow-y-auto pr-1">
             <div className="grid gap-2">
               <label className="text-sm font-medium">Nama Transaksi</label>
               <Input
@@ -1055,11 +1064,11 @@ export default function TransactionsPage() {
                         "",
                     }))
                   }
-                  className={
+                  className={`flex-1 py-2 rounded-lg text-sm font-medium transition-colors ${
                     editFields.type === "pengeluaran"
-                      ? "flex-1 py-2 rounded-lg text-sm font-medium bg-destructive/10 text-destructive border border-destructive/30"
-                      : "flex-1 py-2 rounded-lg text-sm font-medium bg-muted text-muted-foreground border border-border"
-                  }
+                      ? "bg-destructive/10 text-destructive border border-destructive/30"
+                      : "bg-muted text-muted-foreground border border-border"
+                  }`}
                 >
                   Pengeluaran
                 </button>
@@ -1074,11 +1083,11 @@ export default function TransactionsPage() {
                         "",
                     }))
                   }
-                  className={
+                  className={`flex-1 py-2 rounded-lg text-sm font-medium transition-colors ${
                     editFields.type === "pemasukan"
-                      ? "flex-1 py-2 rounded-lg text-sm font-medium bg-secondary/10 text-secondary border border-secondary/30"
-                      : "flex-1 py-2 rounded-lg text-sm font-medium bg-muted text-muted-foreground border border-border"
-                  }
+                      ? "bg-secondary/10 text-secondary border border-secondary/30"
+                      : "bg-muted text-muted-foreground border border-border"
+                  }`}
                 >
                   Pemasukan
                 </button>
@@ -1142,11 +1151,11 @@ export default function TransactionsPage() {
                   onClick={() =>
                     setEditFields((prev) => ({ ...prev, user: "Suami" }))
                   }
-                  className={
+                  className={`flex-1 py-2 rounded-lg text-sm font-medium transition-colors ${
                     editFields.user === "Suami"
-                      ? "flex-1 py-2 rounded-lg text-sm font-medium bg-primary/10 text-primary border border-primary/30"
-                      : "flex-1 py-2 rounded-lg text-sm font-medium bg-muted text-muted-foreground border border-border"
-                  }
+                      ? "bg-primary/10 text-primary border border-primary/30"
+                      : "bg-muted text-muted-foreground border border-border"
+                  }`}
                 >
                   Suami
                 </button>
@@ -1155,11 +1164,11 @@ export default function TransactionsPage() {
                   onClick={() =>
                     setEditFields((prev) => ({ ...prev, user: "Istri" }))
                   }
-                  className={
+                  className={`flex-1 py-2 rounded-lg text-sm font-medium transition-colors ${
                     editFields.user === "Istri"
-                      ? "flex-1 py-2 rounded-lg text-sm font-medium bg-primary/10 text-primary border border-primary/30"
-                      : "flex-1 py-2 rounded-lg text-sm font-medium bg-muted text-muted-foreground border border-border"
-                  }
+                      ? "bg-primary/10 text-primary border border-primary/30"
+                      : "bg-muted text-muted-foreground border border-border"
+                  }`}
                 >
                   Istri
                 </button>
@@ -1176,25 +1185,24 @@ export default function TransactionsPage() {
                 }
               />
             </div>
-
-            <div className="flex items-center justify-end gap-3 pt-2">
-              <Button variant="outline" onClick={() => setEditingTx(null)}>
-                Batal
-              </Button>
-              <Button
-                onClick={handleEditSave}
-                disabled={
-                  submitting ||
-                  !editFields.name.trim() ||
-                  !editFields.amount.trim()
-                }
-              >
-                {submitting ? "Menyimpan..." : "Simpan"}
-              </Button>
-            </div>
           </div>
-        </div>
-      )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditingTx(null)}>
+              Batal
+            </Button>
+            <Button
+              onClick={handleEditSave}
+              disabled={
+                submitting ||
+                !editFields.name.trim() ||
+                !editFields.amount.trim()
+              }
+            >
+              {submitting ? "Menyimpan..." : "Simpan"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Modal Delete Confirmation */}
       {deletingTx && (

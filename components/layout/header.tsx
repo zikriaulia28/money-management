@@ -13,9 +13,9 @@ export function Header() {
   return (
     <header className="sticky top-0 z-50 w-full h-16 bg-card/80 backdrop-blur-md border-b border-border">
       <div className="flex items-center justify-between h-full px-4 md:px-6 lg:px-8">
-        <div className="flex items-center gap-3">
-          <AppLogo className="h-6 w-6 text-[#5C6AC4] hidden sm:block" />
-          <span className="font-semibold text-lg text-primary">
+        <div className="flex items-center gap-2">
+          <AppLogo className="h-6 w-6 text-[#5C6AC4]" />
+          <span className="font-semibold text-lg text-primary hidden sm:block">
             Manage Money
           </span>
         </div>
