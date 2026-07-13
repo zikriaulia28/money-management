@@ -1,15 +1,8 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
-import {
-  ShoppingCart,
-  Briefcase,
-  Film,
-  Car,
-  Utensils,
-  Home,
-  Heart,
-  type LucideIcon,
-} from "lucide-react";
+import type { LucideIcon } from "lucide-react";
+
+// ── Types ──────────────────────────────────────────────────────
 
 // ── Types ──────────────────────────────────────────────────────
 export interface Transaction {
@@ -56,31 +49,9 @@ export interface DebtItem {
   monthly: number;
   progress: number;
   dueDate: string;
+  note?: string;
   dueStatus: "warning" | "paid";
 }
-
-// ── Category Helpers ────────────────────────────────────────────
-export const CATEGORY_ICONS: Record<string, LucideIcon> = {
-  Kebutuhan: ShoppingCart,
-  Pendapatan: Briefcase,
-  Hiburan: Film,
-  Transportasi: Car,
-  Kuliner: Utensils,
-};
-
-export const categoryIconsAll: Record<string, LucideIcon> = {
-  Kebutuhan: ShoppingCart,
-  Pendapatan: Briefcase,
-  Hiburan: Film,
-  Transportasi: Car,
-  Kuliner: Utensils,
-  KPR: Home,
-  "Kredit Mobil": Car,
-  "Kartu Kredit": ShoppingCart,
-  "Pinjaman Pribadi": Briefcase,
-  Pendidikan: Heart,
-  Lainnya: ShoppingCart,
-};
 
 // ── Format Helpers ──────────────────────────────────────────────
 export const formatRupiah = (value: number) =>

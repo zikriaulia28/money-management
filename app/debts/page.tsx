@@ -234,12 +234,12 @@ export default function DebtsPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">Manajemen Cicilan</h1>
-          <p className="text-sm text-muted-foreground mt-1">Pantau cicilan dan utang keluarga</p>
+          <h1 className="text-lg md:text-2xl font-bold tracking-tight">Manajemen Cicilan</h1>
+          <p className="hidden md:block text-sm text-muted-foreground mt-1">Pantau cicilan dan utang keluarga</p>
         </div>
-        <Button className="gap-2" onClick={() => setDialogOpen(true)}>
+        <Button className="gap-2 w-full sm:w-auto" onClick={() => setDialogOpen(true)}>
           <Plus className="h-4 w-4" />
           Cicilan Baru
         </Button>
@@ -329,7 +329,7 @@ export default function DebtsPage() {
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent className="sm:max-w-[400px]">
           <DialogHeader><DialogTitle>Cicilan Baru</DialogTitle><DialogDescription>Catat cicilan atau utang baru</DialogDescription></DialogHeader>
-          <div className="grid gap-4 py-4">
+          <div className="max-h-[60vh] overflow-y-auto pr-1 space-y-4 py-2">
             <div className="grid gap-2">
               <label className="text-sm font-medium">Kategori</label>
               <div className="grid grid-cols-3 gap-2">

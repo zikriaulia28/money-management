@@ -17,6 +17,14 @@ import { useStore, formatRupiah, formatDateDisplay } from "@/lib/store";
 import { cachedFetch, clearCache } from "@/lib/fetch-cache";
 import { CATEGORIES } from "@/lib/categories";
 import { Plus, Sparkles, PiggyBank, Trash2, Loader2, Save } from "lucide-react";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from "@/components/ui/dialog";
 
 type Budget = {
   id: string;
@@ -38,10 +46,10 @@ const PRESETS: Record<string, { label: string; allocations: Record<string, numbe
   standar: {
     label: "Standar Keluarga",
     allocations: {
-      "Kebutuhan Rumah": 30,
-      "Makan & Minum": 20,
-      "Belanja Harian": 15,
-      Transportasi: 10,
+      "Wajib Rumah": 30,
+      "Bahan Masakan": 20,
+      "Jajan/Snack": 15,
+      Kendaraan: 10,
       Anak: 10,
       Kesehatan: 5,
       Hiburan: 5,
@@ -51,10 +59,10 @@ const PRESETS: Record<string, { label: string; allocations: Record<string, numbe
   hemat: {
     label: "Hemat",
     allocations: {
-      "Kebutuhan Rumah": 35,
-      "Makan & Minum": 25,
-      "Belanja Harian": 15,
-      Transportasi: 10,
+      "Wajib Rumah": 35,
+      "Bahan Masakan": 25,
+      "Jajan/Snack": 15,
+      Kendaraan: 10,
       Kesehatan: 5,
       Anak: 5,
       Donasi: 5,
@@ -63,10 +71,10 @@ const PRESETS: Record<string, { label: string; allocations: Record<string, numbe
   seimbang: {
     label: "Seimbang",
     allocations: {
-      "Kebutuhan Rumah": 25,
-      "Makan & Minum": 20,
-      "Belanja Harian": 15,
-      Transportasi: 10,
+      "Wajib Rumah": 25,
+      "Bahan Masakan": 20,
+      "Jajan/Snack": 15,
+      Kendaraan: 10,
       Anak: 10,
       Kesehatan: 5,
       Hiburan: 10,
@@ -333,16 +341,16 @@ export default function BudgetsPage() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">Budget</h1>
-          <p className="text-sm text-muted-foreground mt-1">
+          <h1 className="text-lg md:text-2xl font-bold tracking-tight">Anggaran</h1>
+          <p className="hidden md:block text-sm text-muted-foreground mt-1">
             Atur batas pengeluaran per kategori
           </p>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
           <Select value={period} onValueChange={(v) => { if (v) setPeriod(v); }}>
-            <SelectTrigger className="h-9 min-w-[140px] text-sm">
+            <SelectTrigger className="h-9 flex-1 sm:flex-none min-w-[140px] text-sm">
               <SelectValue placeholder="Pilih bulan" />
             </SelectTrigger>
             <SelectContent>
@@ -353,11 +361,11 @@ export default function BudgetsPage() {
               ))}
             </SelectContent>
           </Select>
-          <Button onClick={openWizard} variant="secondary" className="h-9 gap-2 text-sm">
+          <Button onClick={openWizard} variant="secondary" className="h-9 gap-2 text-sm flex-1 sm:flex-none">
             <Sparkles className="h-4 w-4" />
             Buat Otomatis
           </Button>
-          <Button onClick={() => setDialogOpen(true)} className="h-9 gap-2 text-sm">
+          <Button onClick={() => setDialogOpen(true)} className="h-9 gap-2 text-sm flex-1 sm:flex-none">
             <Plus className="h-4 w-4" />
             Tambah
           </Button>
@@ -455,11 +463,15 @@ export default function BudgetsPage() {
       )}
 
       {/* Dialog Tambah Manual */}
-      {dialogOpen && (
-        <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4">
-          <div className="bg-card rounded-xl border border-border shadow-lg max-w-md w-full p-6 space-y-5">
-            <h2 className="text-lg font-semibold">Tambah Budget Baru</h2>
-
+      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Tambah Budget Baru</DialogTitle>
+            <DialogDescription>
+              Atur batas pengeluaran untuk satu kategori bulan ini.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 max-h-[60vh] overflow-y-auto pr-1">
             <div className="space-y-1.5">
               <label className="text-sm font-medium">Kategori</label>
               <Select value={newCategory} onValueChange={(v) => { if (v) setNewCategory(v); }}>
@@ -490,23 +502,26 @@ export default function BudgetsPage() {
                 className="h-10"
               />
             </div>
-
-            <div className="flex items-center justify-end gap-3 pt-2">
-              <Button variant="outline" onClick={() => setDialogOpen(false)}>
-                Batal
-              </Button>
-              <Button onClick={handleAddBudget} disabled={!newCategory || !newAmount}>
-                Simpan
-              </Button>
-            </div>
           </div>
-        </div>
-      )}
+          <DialogFooter className="gap-2">
+            <Button variant="outline" onClick={() => setDialogOpen(false)}>
+              Batal
+            </Button>
+            <Button onClick={handleAddBudget} disabled={!newCategory || !newAmount}>
+              Simpan
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Wizard Modal */}
-      {wizardOpen && (
-        <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4">
-          <div className="bg-card rounded-xl border border-border shadow-lg max-w-lg w-full p-6 space-y-5 max-h-[90vh] overflow-y-auto">
+      <Dialog open={wizardOpen} onOpenChange={setWizardOpen}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Buat Budget Otomatis</DialogTitle>
+            <DialogDescription>Ikuti langkah-langkah untuk membuat budget bulan ini.</DialogDescription>
+          </DialogHeader>
+          <div className="max-h-[60vh] overflow-y-auto pr-1 space-y-5">
             {/* Step Indicator */}
             <div className="flex items-center gap-2 text-xs mb-2">
               <div className="flex items-center gap-1.5">
@@ -779,8 +794,8 @@ export default function BudgetsPage() {
               </div>
             )}
           </div>
-        </div>
-      )}
+          </DialogContent>
+        </Dialog>
 
       {/* Delete Confirm */}
       {deleteId && (

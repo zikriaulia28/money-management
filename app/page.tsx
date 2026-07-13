@@ -22,9 +22,9 @@ export default function DashboardPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold tracking-tight">Dashboard</h1>
-        <p className="text-sm text-muted-foreground">{dateStr}</p>
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1 sm:gap-4">
+        <h1 className="text-lg md:text-2xl font-bold tracking-tight">Dashboard</h1>
+        <p className="text-xs sm:text-sm text-muted-foreground">{dateStr}</p>
       </div>
 
       <SummaryCards />

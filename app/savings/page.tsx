@@ -252,12 +252,12 @@ export default function SavingsPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">Target Tabungan</h1>
-          <p className="text-sm text-muted-foreground mt-1">Kelola target keuangan dan pantau progress tabungan</p>
+          <h1 className="text-lg md:text-2xl font-bold tracking-tight">Target Tabungan</h1>
+          <p className="hidden md:block text-sm text-muted-foreground mt-1">Kelola target keuangan dan pantau progress tabungan</p>
         </div>
-        <Button className="gap-2" onClick={() => setDialogOpen(true)}>
+        <Button className="gap-2 w-full sm:w-auto" onClick={() => setDialogOpen(true)}>
           <Plus className="h-4 w-4" /> Target Baru
         </Button>
       </div>
@@ -328,8 +328,8 @@ export default function SavingsPage() {
                             variant="outline"
                             size="sm"
                             className="flex-1"
-                            disabled={!isCompleted}
-                            title={isCompleted ? "" : "Tabungan belum penuh"}
+                            disabled={goal.collected < goal.target}
+                            title={goal.collected >= goal.target ? "Tandai target selesai" : "Tabungan belum penuh"}
                             onClick={() => handleCompleteGoal(goal.id)}
                           >
                             Selesai
@@ -394,63 +394,60 @@ export default function SavingsPage() {
       </Dialog>
 
       {/* History Modal */}
-      {historyTarget && (
-        <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4">
-          <div className="bg-card rounded-xl border border-border shadow-lg max-w-md w-full p-6 space-y-4">
-            <div className="flex items-center justify-between">
-              <h2 className="text-lg font-semibold">Riwayat Tabungan</h2>
-              <Button variant="ghost" size="sm" onClick={() => setHistoryTarget(null)}>✕</Button>
-            </div>
-            <p className="text-sm text-muted-foreground">{historyTarget.name}</p>
-            <div className="max-h-[60vh] overflow-y-auto -mx-2 px-2">
-              {historyLoading ? (
-                <p className="text-sm text-center text-muted-foreground py-6">Memuat...</p>
-              ) : historyData.length === 0 ? (
-                <p className="text-sm text-center text-muted-foreground py-6">Belum ada setoran</p>
-              ) : (
-                <div className="space-y-2">
-                  {historyData.map((d, i) => (
-                    <div key={i} className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
-                      <div>
-                        <p className="text-sm font-medium">{formatRupiah(d.amount)}</p>
-                        <p className="text-xs text-muted-foreground">
-                          {new Date(d.date).toLocaleDateString("id-ID", { day: "numeric", month: "short", year: "numeric" })}
-                        </p>
-                      </div>
-                      <span className="text-xs px-2 py-0.5 rounded-full bg-primary/10 text-primary">
-                        {d.type === "budget" ? "Budget" : d.type === "recurring" ? "Recurring" : "Manual"}
-                      </span>
+      <Dialog open={historyTarget !== null} onOpenChange={(open) => { if (!open) setHistoryTarget(null); }}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Riwayat Tabungan</DialogTitle>
+            <DialogDescription>{historyTarget?.name}</DialogDescription>
+          </DialogHeader>
+          <div className="max-h-[60vh] overflow-y-auto pr-1">
+            {historyLoading ? (
+              <p className="text-sm text-center text-muted-foreground py-6">Memuat...</p>
+            ) : historyData.length === 0 ? (
+              <p className="text-sm text-center text-muted-foreground py-6">Belum ada setoran</p>
+            ) : (
+              <div className="space-y-2">
+                {historyData.map((d, i) => (
+                  <div key={i} className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
+                    <div>
+                      <p className="text-sm font-medium">{formatRupiah(d.amount)}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {new Date(d.date).toLocaleDateString("id-ID", { day: "numeric", month: "short", year: "numeric" })}
+                      </p>
                     </div>
-                  ))}
-                </div>
-              )}
-            </div>
-            <div className="flex justify-end pt-1">
-              <Button variant="outline" onClick={() => setHistoryTarget(null)}>Tutup</Button>
-            </div>
+                    <span className="text-xs px-2 py-0.5 rounded-full bg-primary/10 text-primary">
+                      {d.type === "budget" ? "Budget" : d.type === "recurring" ? "Recurring" : "Manual"}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
-        </div>
-      )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setHistoryTarget(null)}>Tutup</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Delete Confirm Modal */}
-      {deleteTarget && (
-        <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4">
-          <div className="bg-card rounded-xl border border-border shadow-lg max-w-sm w-full p-6 space-y-4">
-            <h2 className="text-lg font-semibold">Hapus Target Tabungan</h2>
-            <p className="text-sm text-muted-foreground">
-              Yakin ingin menghapus <strong>{deleteTarget.name}</strong>? Tindakan ini tidak bisa dibatalkan.
-            </p>
-            <div className="flex items-center justify-end gap-3 pt-1">
-              <Button variant="outline" onClick={() => setDeleteTarget(null)}>
-                Batal
-              </Button>
-              <Button variant="destructive" onClick={() => handleDeleteGoal(deleteTarget.id)}>
-                Ya, Hapus
-              </Button>
-            </div>
-          </div>
-        </div>
-      )}
+      <Dialog open={deleteTarget !== null} onOpenChange={(open) => { if (!open) setDeleteTarget(null); }}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Hapus Target Tabungan</DialogTitle>
+            <DialogDescription>
+              Yakin ingin menghapus <strong>{deleteTarget?.name}</strong>? Tindakan ini tidak bisa dibatalkan.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="gap-2">
+            <Button variant="outline" onClick={() => setDeleteTarget(null)}>
+              Batal
+            </Button>
+            <Button variant="destructive" onClick={() => deleteTarget && handleDeleteGoal(deleteTarget.id)}>
+              Ya, Hapus
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

@@ -22,14 +22,22 @@ import {
 } from "@/components/ui/dialog";
 import {
   Search,
-  ShoppingCart,
-  Briefcase,
-  Film,
-  Car,
-  Utensils,
-  Home,
-  Heart,
   Plus,
+  Briefcase,
+  Gift,
+  PlusCircle,
+  Home,
+  ChefHat,
+  Coffee,
+  Car,
+  Baby,
+  Shirt,
+  Users,
+  HeartPulse,
+  HandHeart,
+  Film,
+  TrendingUp,
+  MoreHorizontal,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { useStore, formatRupiah, formatDateDisplay } from "@/lib/store";
@@ -83,70 +91,43 @@ type ApiResponse = {
   transactions: ApiTransaction[];
 };
 
-// Map old category names to new ones (for backward compat with DB)
-const OLD_CATEGORY_MAP: Record<string, string> = {
-  Kebutuhan: "Kebutuhan Rumah",
-  Pendapatan: "Gaji",
-  Kuliner: "Makan & Minum",
-  "Makanan & Minuman": "Makan & Minum",
-  Belanja: "Belanja Harian",
-  Bonus: "Bonus/THR",
-};
-
-const iconOverrides: Record<string, LucideIcon> = {
-  Belanja: ShoppingCart,
+// Map kategori name → LucideIcon
+const CATEGORY_ICON_MAP: Record<string, LucideIcon> = {
   Gaji: Briefcase,
-  "Bonus/THR": Briefcase,
+  "Bonus/THR": Gift,
+  "Pendapatan Lainnya": PlusCircle,
+  "Wajib Rumah": Home,
+  "Bahan Masakan": ChefHat,
+  "Jajan/Snack": Coffee,
+  Kendaraan: Car,
+  Anak: Baby,
+  Fashion: Shirt,
+  Sosial: Users,
+  Kesehatan: HeartPulse,
+  Donasi: HandHeart,
   Hiburan: Film,
-  "Kebutuhan Rumah": Home,
-  Transportasi: Car,
-  Kuliner: Utensils,
-  Kesehatan: Heart,
-  "Makanan & Minuman": Utensils,
-  Lainnya: ShoppingCart,
-  Kebutuhan: ShoppingCart,
-  Pendapatan: Briefcase,
-};
-
-const iconOverrideBg: Record<string, string> = {
-  Belanja: "bg-purple-500/10",
-  Bonus: "bg-teal-500/10",
-  "Makanan & Minuman": "bg-amber-500/10",
-  Kebutuhan: "bg-blue-500/10",
-  Pendapatan: "bg-green-500/10",
-  Kuliner: "bg-amber-500/10",
-};
-
-const iconOverrideColors: Record<string, string> = {
-  Belanja: "text-purple-500",
-  Bonus: "text-teal-500",
-  "Makanan & Minuman": "text-amber-500",
-  Kebutuhan: "text-primary",
-  Pendapatan: "text-secondary",
-  Kuliner: "text-amber-500",
+  Investasi: TrendingUp,
+  Lainnya: MoreHorizontal,
 };
 
 function resolveCategoryIcon(name?: string | null): LucideIcon {
-  if (!name) return ShoppingCart;
-  const old = OLD_CATEGORY_MAP[name] || name;
-  return iconOverrides[old] || iconOverrides[name] || ShoppingCart;
+  if (!name) return MoreHorizontal;
+  return CATEGORY_ICON_MAP[name] || MoreHorizontal;
 }
 
 function resolveIconBg(name?: string | null): string {
   if (!name) return "bg-muted";
-  return iconOverrideBg[name] || iconBg[name] || "bg-muted";
+  return iconBg[name] || "bg-muted";
 }
 
 function resolveIconColor(name?: string | null): string {
   if (!name) return "text-muted-foreground";
-  return (
-    iconOverrideColors[name] || iconColors[name] || "text-muted-foreground"
-  );
+  return iconColors[name] || "text-muted-foreground";
 }
 
 function resolveCategoryStyle(name?: string | null): string {
   if (!name) return "";
-  return categoryStyles[name] || categoryStyles[OLD_CATEGORY_MAP[name]] || "";
+  return categoryStyles[name] || "";
 }
 
 export default function TransactionsPage() {
