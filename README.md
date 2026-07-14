@@ -58,42 +58,43 @@ Money Management/
 ## Installation & Setup
 
 ### Prerequisites
-- Node.js 18+ (with pnpm)
-- PostgreSQL database with appropriate credentials
+- Node.js 18+
+- PostgreSQL database
 
 ### Steps to Run
 
 1. **Clone Repository**
-```bash
+\`\`\`bash
 git clone <repository-url>
 cd money-management
-```
+\`\`\`
 
 2. **Install Dependencies**
-```bash
-pnpm install
-```
+\`\`\`bash
+npm install
+\`\`\`
 
 3. **Set Up Environment**
-Create a `.env` file:
-```env
-DATABASE_URL=postgresql://username:password@localhost:5432/db_name
-```
+Copy \`.env.example\` to \`.env\`:
+\`\`\`bash
+cp .env.example .env
+\`\`\`
+Then edit \`.env\` with your database credentials.
 
 4. **Initialize Database**
-```bash
+\`\`\`bash
 npx prisma generate
 npx prisma db push
-```
+\`\`\`
 
 5. **Run Development Server**
-```bash
-pnpm dev
-```
+\`\`\`bash
+npm run dev
+\`\`\`
 
 6. **Access Application**
 Open your browser and navigate to:
-`http://localhost:3000`
+\`http://localhost:3000\`
 
 ## Project Highlights
 
@@ -137,14 +138,13 @@ The application provides seamless experience across all device types:
 
 ### Accessibility
 - Proper ARIA labels and semantic HTML
-- Keyboard navigation support
-- Screen reader compatibility
-- High contrast options
+- Basic keyboard navigation
+- Screen reader compatible output
 
 ### Real-time Updates
-- Live updates for transaction lists
-- Automatic budget calculations
-- Real-time chart rendering
+- Transaction list refreshes after add/edit/delete
+- Budget recalculation on transaction changes
+- Chart updates on data mutation
 
 ## Development Workflow
 
