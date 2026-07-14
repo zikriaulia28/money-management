@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
+import { createDebtSchema, debtActionSchema } from "@/lib/validations";
 
 export const runtime = "nodejs";
 
@@ -32,77 +33,75 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
   try {
     const body = await request.json();
-    const {
-      action,
-      id,
-      name,
-      lender,
-      total,
-      monthly,
-      dueDate,
-      category,
-      interestRate,
-      user,
-      payAmount,
-    } = body ?? {};
 
-    if (action === "pay" && id) {
-      const debt = await prisma.debt.findUnique({ where: { id } });
+    // ── Check if this is an action (pay / toggle-status / delete) ──
+    if (body.action) {
+      const parsed = debtActionSchema.safeParse(body);
+      if (!parsed.success) {
+        const firstError = parsed.error.issues[0];
+        return NextResponse.json({ error: firstError.message }, { status: 400 });
+      }
+      const { action, id, payAmount } = parsed.data;
 
-      if (!debt) {
-        return NextResponse.json({ error: "Cicilan tidak ditemukan" }, { status: 404 });
+      if (action === "pay" && id) {
+        const debt = await prisma.debt.findUnique({ where: { id } });
+
+        if (!debt) {
+          return NextResponse.json({ error: "Cicilan tidak ditemukan" }, { status: 404 });
+        }
+
+        const amount = Number(payAmount ?? 0);
+        const safeAmount = Number.isNaN(amount) ? 0 : amount;
+        const newRemaining = Math.max(0, debt.remaining - safeAmount);
+        const monthlyNum = Number(debt.monthly);
+
+        const updated = await prisma.debt.update({
+          where: { id: debt.id },
+          data: {
+            remaining: newRemaining,
+            monthly: Number.isNaN(monthlyNum) ? debt.monthly : monthlyNum,
+            dueStatus: newRemaining <= 0 ? "paid" : debt.dueStatus,
+          },
+        });
+
+        return NextResponse.json({ debt: updated });
       }
 
-      const amount = Number(payAmount ?? monthly ?? 0);
-      const safeAmount = Number.isNaN(amount) ? 0 : amount;
-      const newRemaining = Math.max(0, debt.remaining - safeAmount);
-      const monthlyNum = Number(monthly ?? debt.monthly);
+      if (action === "toggle-status" && id) {
+        const debt = await prisma.debt.findUnique({ where: { id } });
+        if (!debt) {
+          return NextResponse.json({ error: "Cicilan tidak ditemukan" }, { status: 404 });
+        }
 
-      const updated = await prisma.debt.update({
-        where: { id: debt.id },
-        data: {
-          remaining: newRemaining,
-          monthly: Number.isNaN(monthlyNum) ? debt.monthly : monthlyNum,
-          dueDate: dueDate ? new Date(dueDate) : debt.dueDate,
-          dueStatus: newRemaining <= 0 ? "paid" : debt.dueStatus,
-        },
-      });
+        const nextStatus = debt.dueStatus === "paid" ? "warning" : "paid";
 
-      return NextResponse.json({ debt: updated });
-    }
+        const updated = await prisma.debt.update({
+          where: { id: debt.id },
+          data: { dueStatus: nextStatus },
+        });
 
-    if (action === "toggle-status" && id) {
-      const debt = await prisma.debt.findUnique({ where: { id } });
-      if (!debt) {
-        return NextResponse.json({ error: "Cicilan tidak ditemukan" }, { status: 404 });
+        return NextResponse.json({ debt: updated });
       }
 
-      const nextStatus = debt.dueStatus === "paid" ? "warning" : "paid";
+      if (action === "delete" && id) {
+        const debt = await prisma.debt.findUnique({ where: { id } });
+        if (!debt) {
+          return NextResponse.json({ error: "Cicilan tidak ditemukan" }, { status: 404 });
+        }
 
-      const updated = await prisma.debt.update({
-        where: { id: debt.id },
-        data: { dueStatus: nextStatus },
-      });
+        await prisma.debt.delete({ where: { id } });
 
-      return NextResponse.json({ debt: updated });
-    }
-
-    if (action === "delete" && id) {
-      const debt = await prisma.debt.findUnique({ where: { id } });
-      if (!debt) {
-        return NextResponse.json({ error: "Cicilan tidak ditemukan" }, { status: 404 });
+        return NextResponse.json({ success: true });
       }
-
-      await prisma.debt.delete({
-        where: { id },
-      });
-
-      return NextResponse.json({ success: true });
     }
 
-    if (!name || !lender || total == null || monthly == null || !dueDate || !user) {
-      return NextResponse.json({ error: "Data cicilan tidak lengkap" }, { status: 400 });
+    // ── Create ──
+    const parsed = createDebtSchema.safeParse(body);
+    if (!parsed.success) {
+      const firstError = parsed.error.issues[0];
+      return NextResponse.json({ error: firstError.message }, { status: 400 });
     }
+    const { name, lender, category, total, monthly, dueDate, interestRate, user } = parsed.data;
 
     // 1. Dapatkan atau buat Household default
     let household = await prisma.household.findFirst({ where: { name: "Keluarga" } });

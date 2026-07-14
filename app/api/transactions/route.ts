@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
+import { createTransactionSchema, updateTransactionSchema } from "@/lib/validations";
 
 export const runtime = "nodejs";
 
@@ -43,6 +44,9 @@ export async function GET(request: Request) {
     const period = searchParams.get("period");
     const q = searchParams.get("q");
     const category = searchParams.get("category");
+    const page = parseInt(searchParams.get("page") || "1", 10);
+    const pageSize = parseInt(searchParams.get("pageSize") || "6", 10);
+    const skip = (page - 1) * pageSize;
 
     const where: Record<string, unknown> = {};
 
@@ -75,11 +79,18 @@ export async function GET(request: Request) {
       }
     }
 
-    const transactions = await prisma.transaction.findMany({
-      where: Object.keys(where).length > 0 ? where : undefined,
-      include: { category: true, user: true },
-      orderBy: { date: "desc" },
-    });
+    const [transactions, totalCount] = await Promise.all([
+      prisma.transaction.findMany({
+        where: Object.keys(where).length > 0 ? where : undefined,
+        include: { category: true, user: true },
+        orderBy: { date: "desc" },
+        skip,
+        take: pageSize,
+      }),
+      prisma.transaction.count({
+        where: Object.keys(where).length > 0 ? where : undefined,
+      }),
+    ]);
 
     // Transform untuk frontend: category & user jadi string
     const mapped = transactions.map(tx => ({
@@ -96,21 +107,24 @@ export async function GET(request: Request) {
       categoryType: tx.category.type,
     }));
 
-    return NextResponse.json({ transactions: mapped });
+    return NextResponse.json({ transactions: mapped, total: totalCount });
   } catch (error) {
     console.error("[GET /api/transactions]", error);
     return NextResponse.json({ error: "Gagal memuat transaksi" }, { status: 500 });
+  } finally {
+    await prisma.$disconnect();
   }
 }
 
 export async function POST(request: Request) {
   try {
     const body = await request.json();
-    const { name, amount, type, date, category, user, note } = body ?? {};
-
-    if (!name || amount == null || !type || !date || !category || !user) {
-      return NextResponse.json({ error: "Data transaksi tidak lengkap" }, { status: 400 });
+    const parsed = createTransactionSchema.safeParse(body);
+    if (!parsed.success) {
+      const firstError = parsed.error.issues[0];
+      return NextResponse.json({ error: firstError.message }, { status: 400 });
     }
+    const { name, amount, type, date, category, user, note } = parsed.data;
 
     let household = await prisma.household.findFirst({ where: { name: "Keluarga" } });
     if (!household) {
@@ -150,13 +164,20 @@ export async function POST(request: Request) {
   } catch (error) {
     console.error("[POST /api/transactions]", error);
     return NextResponse.json({ error: "Gagal menambah transaksi" }, { status: 500 });
+  } finally {
+    await prisma.$disconnect();
   }
 }
 
 export async function PUT(request: Request) {
   try {
     const body = await request.json();
-    const { id, name, amount, type, date, category, user, note } = body ?? {};
+    const parsed = updateTransactionSchema.safeParse(body);
+    if (!parsed.success) {
+      const firstError = parsed.error.issues[0];
+      return NextResponse.json({ error: firstError.message }, { status: 400 });
+    }
+    const { id, name, amount, type, date, category, user, note } = parsed.data;
 
     if (!id) {
       return NextResponse.json({ error: "ID transaksi tidak ditemukan" }, { status: 400 });
@@ -199,6 +220,8 @@ export async function PUT(request: Request) {
   } catch (error) {
     console.error("[PUT /api/transactions]", error);
     return NextResponse.json({ error: "Gagal mengupdate transaksi" }, { status: 500 });
+  } finally {
+    await prisma.$disconnect();
   }
 }
 
@@ -223,5 +246,7 @@ export async function DELETE(request: Request) {
   } catch (error) {
     console.error("[DELETE /api/transactions]", error);
     return NextResponse.json({ error: `Gagal menghapus transaksi: ${error instanceof Error ? error.message : "Unknown error"}` }, { status: 500 });
+  } finally {
+    await prisma.$disconnect();
   }
 }

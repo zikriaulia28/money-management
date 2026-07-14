@@ -77,6 +77,7 @@ type ApiTransaction = {
 
 type ApiResponse = {
   transactions: ApiTransaction[];
+  total: number;
 };
 
 // Map kategori name → LucideIcon
@@ -122,6 +123,7 @@ export default function TransactionsPage() {
   const activeUser = useStore((s) => s.activeUser);
 
   const [transactions, setTransactions] = useState<ApiTransaction[]>([]);
+  const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -187,11 +189,14 @@ export default function TransactionsPage() {
     setError(null);
     try {
       const params = new URLSearchParams(buildQuery());
+      params.set("page", String(currentPage));
+      params.set("pageSize", String(ITEMS_PER_PAGE));
       const data = await cachedFetch<ApiResponse>(
         `/api/transactions?${params.toString()}`,
         { bust },
       );
       setTransactions(data.transactions ?? []);
+      setTotal(data.total ?? 0);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Terjadi kesalahan");
       setTransactions([]);
@@ -204,17 +209,14 @@ export default function TransactionsPage() {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     fetchTransactions();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [categoryFilter, searchQuery, periodFilter]);
+  }, [categoryFilter, searchQuery, periodFilter, currentPage]);
 
   const totalPages = Math.max(
     1,
-    Math.ceil(transactions.length / ITEMS_PER_PAGE),
+    Math.ceil(total / ITEMS_PER_PAGE),
   );
   const safePage = Math.min(currentPage, totalPages);
-  const paginated = transactions.slice(
-    (safePage - 1) * ITEMS_PER_PAGE,
-    safePage * ITEMS_PER_PAGE,
-  );
+  const paginated = transactions;
 
   function resetFilter() {
     setSearchQuery("");
@@ -804,8 +806,8 @@ export default function TransactionsPage() {
             Menampilkan{" "}
             {paginated.length > 0 ? (safePage - 1) * ITEMS_PER_PAGE + 1 : 0}
             {" — "}
-            {Math.min(safePage * ITEMS_PER_PAGE, transactions.length)} dari{" "}
-            {transactions.length} transaksi
+            {Math.min(safePage * ITEMS_PER_PAGE, total)} dari{" "}
+            {total} transaksi
           </span>
           <div className="flex items-center gap-1.5">
             <button

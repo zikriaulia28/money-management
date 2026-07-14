@@ -1,6 +1,10 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import type { LucideIcon } from "lucide-react";
+import { formatRupiah, formatDateDisplay } from "@/lib/utils";
+
+// Re-export for backward compatibility — semua komponen lama masih import dari @/lib/store
+export { formatRupiah, formatDateDisplay };
 
 // ── Types ──────────────────────────────────────────────────────
 
@@ -52,38 +56,6 @@ export interface DebtItem {
   note?: string;
   dueStatus: "warning" | "paid";
 }
-
-// ── Format Helpers ──────────────────────────────────────────────
-export const formatRupiah = (value: number) =>
-  new Intl.NumberFormat("id-ID", {
-    style: "currency",
-    currency: "IDR",
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 0,
-  })
-    .format(value)
-    .replace(/\u00A0/g, " ");
-
-export const formatDateDisplay = (dateStr: string) => {
-  if (!dateStr || dateStr === "-") return "-";
-  if (/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
-    const [y, m, d] = dateStr.split("-");
-    const months = [
-      "Jan", "Feb", "Mar", "Apr", "Mei", "Jun",
-      "Jul", "Agu", "Sep", "Okt", "Nov", "Des",
-    ];
-    return `${parseInt(d, 10)} ${months[parseInt(m, 10) - 1]} ${y}`;
-  }
-  const d = new Date(dateStr);
-  if (!isNaN(d.getTime())) {
-    const months = [
-      "Jan", "Feb", "Mar", "Apr", "Mei", "Jun",
-      "Jul", "Agu", "Sep", "Okt", "Nov", "Des",
-    ];
-    return `${d.getDate()} ${months[d.getMonth()]} ${d.getFullYear()}`;
-  }
-  return "-";
-};
 
 // ── Store ──────────────────────────────────────────────────────
 interface FinanceStore {

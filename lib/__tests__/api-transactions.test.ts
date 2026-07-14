@@ -9,7 +9,7 @@ const { mockPrisma } = vi.hoisted(() => {
     household: { findFirst: vi.fn(), create: vi.fn() },
     user: { findFirst: vi.fn(), create: vi.fn() },
     category: { findFirst: vi.fn(), findUnique: vi.fn(), findMany: vi.fn(), create: vi.fn() },
-    transaction: { findMany: vi.fn(), findUnique: vi.fn(), create: vi.fn(), update: vi.fn(), delete: vi.fn() },
+    transaction: { findMany: vi.fn(), findUnique: vi.fn(), create: vi.fn(), update: vi.fn(), delete: vi.fn(), count: vi.fn() },
     budget: { findMany: vi.fn(), upsert: vi.fn(), delete: vi.fn() },
     savingGoal: { findMany: vi.fn(), findUnique: vi.fn(), create: vi.fn(), update: vi.fn(), delete: vi.fn() },
     savingDeposit: { create: vi.fn() },
@@ -70,6 +70,7 @@ beforeEach(() => {
 describe("GET /api/transactions", () => {
   it("returns empty list when no transactions", async () => {
     (mockPrisma.transaction.findMany as Mock).mockResolvedValue([]);
+    (mockPrisma.transaction.count as Mock).mockResolvedValue(0);
 
     const res = await GET(createRequest("http://localhost:3000/api/transactions"));
     const body = await res.json();
@@ -91,6 +92,7 @@ describe("GET /api/transactions", () => {
         note: null,
       },
     ]);
+    (mockPrisma.transaction.count as Mock).mockResolvedValue(1);
 
     const res = await GET(createRequest("http://localhost:3000/api/transactions"));
     const body = await res.json();
@@ -177,7 +179,7 @@ describe("POST /api/transactions", () => {
 
     expect(res.status).toBe(400);
     const body = await res.json();
-    expect(body.error).toContain("tidak lengkap");
+    expect(body.error).toContain("Invalid input");
   });
 
   it("auto-creates household if not exists", async () => {

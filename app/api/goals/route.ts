@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
+import { createGoalSchema } from "@/lib/validations";
 
 export const runtime = "nodejs";
 
@@ -39,11 +40,12 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
   try {
     const body = await request.json();
-    const { name, target, deadline, user } = body ?? {};
-
-    if (!name || target == null || !user) {
-      return NextResponse.json({ error: "Data tabungan tidak lengkap" }, { status: 400 });
+    const parsed = createGoalSchema.safeParse(body);
+    if (!parsed.success) {
+      const firstError = parsed.error.issues[0];
+      return NextResponse.json({ error: firstError.message }, { status: 400 });
     }
+    const { name, target, deadline, user } = parsed.data;
 
     // 1. Dapatkan atau buat Household default
     let household = await prisma.household.findFirst({ where: { name: "Keluarga" } });

@@ -1,13 +1,40 @@
 "use client";
 
-import { Bell, HelpCircle } from "lucide-react";
+import { useEffect, useState } from "react";
+import { Bell, HelpCircle, Moon, Sun } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useStore } from "@/lib/store";
 import { AppLogo } from "@/components/ui/app-logo";
+import { cn } from "@/lib/utils";
 
 export function Header() {
   const activeUser = useStore((s) => s.activeUser);
   const setActiveUser = useStore((s) => s.setActiveUser);
+  const [dark, setDark] = useState(false);
+
+  // Init from localStorage or system preference
+  useEffect(() => {
+    const stored = localStorage.getItem("theme");
+    if (stored === "dark" || (!stored && window.matchMedia("(prefers-color-scheme: dark)").matches)) {
+      document.documentElement.classList.add("dark");
+      setDark(true);
+    } else {
+      document.documentElement.classList.remove("dark");
+      setDark(false);
+    }
+  }, []);
+
+  function toggleTheme() {
+    const next = !dark;
+    setDark(next);
+    if (next) {
+      document.documentElement.classList.add("dark");
+      localStorage.setItem("theme", "dark");
+    } else {
+      document.documentElement.classList.remove("dark");
+      localStorage.setItem("theme", "light");
+    }
+  }
 
   return (
     <header className="sticky top-0 z-50 w-full h-16 bg-card/80 backdrop-blur-md border-b border-border">
@@ -20,6 +47,17 @@ export function Header() {
         </div>
 
         <div className="flex items-center gap-2">
+          {/* Dark mode toggle */}
+          <Button
+            variant="ghost"
+            size="icon"
+            className="text-muted-foreground"
+            onClick={toggleTheme}
+            aria-label={dark ? "Mode terang" : "Mode gelap"}
+          >
+            {dark ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+          </Button>
+
           {/* Active user selector */}
           <div className="flex items-center gap-1 bg-muted rounded-full p-0.5 border border-border">
             <button

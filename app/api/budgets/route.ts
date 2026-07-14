@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
+import { createBudgetSchema } from "@/lib/validations";
 
 export const runtime = "nodejs";
 
@@ -71,22 +72,20 @@ export async function GET(request: Request) {
   } catch (error) {
     console.error("[GET /api/budgets]", error);
     return NextResponse.json({ error: "Gagal memuat budget" }, { status: 500 });
+  } finally {
+    await prisma.$disconnect();
   }
 }
 
 export async function POST(request: Request) {
   try {
     const body = await request.json();
-    const { category, amount, month } = body ?? {};
-
-    // Frontend bisa juga kirim format lama: categoryId, limit, period
-    const categoryName = category || body.categoryName;
-    const budgetAmount = amount || body.limit;
-    const budgetPeriod = month || body.period;
-
-    if (!categoryName || budgetAmount == null || !budgetPeriod) {
-      return NextResponse.json({ error: "Data budget tidak lengkap" }, { status: 400 });
+    const parsed = createBudgetSchema.safeParse(body);
+    if (!parsed.success) {
+      const firstError = parsed.error.issues[0];
+      return NextResponse.json({ error: firstError.message }, { status: 400 });
     }
+    const { category: categoryName, amount: budgetAmount, month: budgetPeriod } = parsed.data;
 
     // 1. Dapatkan atau buat Household
     let household = await prisma.household.findFirst({ where: { name: "Keluarga" } });
@@ -140,6 +139,8 @@ export async function POST(request: Request) {
   } catch (error) {
     console.error("[POST /api/budgets]", error);
     return NextResponse.json({ error: "Gagal menyimpan budget" }, { status: 500 });
+  } finally {
+    await prisma.$disconnect();
   }
 }
 
@@ -157,5 +158,7 @@ export async function DELETE(request: Request) {
   } catch (error) {
     console.error("[DELETE /api/budgets]", error);
     return NextResponse.json({ error: "Gagal menghapus budget" }, { status: 500 });
+  } finally {
+    await prisma.$disconnect();
   }
 }

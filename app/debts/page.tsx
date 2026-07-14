@@ -17,8 +17,10 @@ import {
   AlertTriangle,
   CheckCircle2,
   Trash2,
+  CircleDollarSign,
 } from "lucide-react";
 import { CATEGORIES, CATEGORY_ICON_MAP, ICON_BG_MAP, ICON_COLOR_MAP } from "@/lib/categories";
+import { useStore, formatRupiah, formatDateDisplay } from "@/lib/store";
 import { parseRupiah } from "@/lib/utils";
 import { cachedFetch } from "@/lib/fetch-cache";
 
@@ -37,7 +39,7 @@ DEBT_CATEGORIES.forEach((c) => {
 });
 
 function getDebtStyle(category: string) {
-  return debtIconMap[category] || debtIconMap["Lainnya"];
+  return debtIconMap[category] ?? { icon: CircleDollarSign, iconColor: "text-muted-foreground", iconBg: "bg-muted" };
 }
 
 type ApiDebt = {

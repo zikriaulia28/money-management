@@ -13,6 +13,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { useStore } from "@/lib/store";
 import { formatRupiah } from "@/lib/store";
 import { cachedFetch, clearCache } from "@/lib/fetch-cache";
 import { CATEGORIES } from "@/lib/categories";
@@ -405,8 +406,9 @@ export default function BudgetsPage() {
       ) : (
         <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 xl:grid-cols-3">
           {budgets.map((budget) => {
-            const pct = budget.amount > 0 ? Math.min(100, Math.round((budget.spent / budget.amount) * 100)) : 0;
+            const pct = budget.amount > 0 ? Math.round((budget.spent / budget.amount) * 100) : 0;
             const isOver = budget.spent > budget.amount;
+            const displayPct = Math.min(pct, 100);
             return (
               <Card key={budget.id}>
                 <CardHeader className="pb-3">
@@ -437,9 +439,15 @@ export default function BudgetsPage() {
                   <div className="space-y-1">
                     <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-1 text-xs text-muted-foreground">
                       <span>{pct}%</span>
-                      <span className="text-right sm:text-left">Sisa {formatRupiah(budget.amount - budget.spent)}</span>
+                      <span className="text-right sm:text-left">
+                        {isOver ? (
+                          <span className="text-destructive">Defisit {formatRupiah(budget.spent - budget.amount)}</span>
+                        ) : (
+                          <>Sisa {formatRupiah(budget.amount - budget.spent)}</>
+                        )}
+                      </span>
                     </div>
-                    <Progress value={pct} className={`h-2 ${isOver ? "[&>div]:bg-destructive" : ""}`} />
+                    <Progress value={displayPct} className={`h-2 ${isOver ? "[&>div]:bg-destructive" : ""}`} />
                   </div>
                 </CardContent>
               </Card>

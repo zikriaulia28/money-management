@@ -58,7 +58,27 @@ export function SummaryCards() {
     return { totalIncome, totalExpense, balance };
   }, [transactions]);
 
-  const incomePercent = Math.min(Math.round((summary.totalIncome / 170_000_000) * 100), 100);
+  // Dynamic income target: average monthly income over available data
+  const incomeTarget = useMemo(() => {
+    if (transactions.length === 0) return 170_000_000;
+
+    const monthlyMap = new Map<string, number>();
+    for (const tx of transactions) {
+      if (tx.amount > 0) {
+        const monthKey = tx.date.slice(0, 7); // "2026-07"
+        monthlyMap.set(monthKey, (monthlyMap.get(monthKey) || 0) + tx.amount);
+      }
+    }
+
+    if (monthlyMap.size === 0) return 170_000_000;
+    const avg = Math.round(
+      [...monthlyMap.values()].reduce((s, v) => s + v, 0) / monthlyMap.size
+    );
+    // Round to nearest million
+    return Math.max(avg, 1_000_000);
+  }, [transactions]);
+
+  const incomePercent = Math.min(Math.round((summary.totalIncome / incomeTarget) * 100), 100);
 
   const cards = [
     {
@@ -74,7 +94,7 @@ export function SummaryCards() {
       amount: formatRupiah(summary.totalIncome),
       icon: <TrendingUp className="h-5 w-5 text-secondary" />,
       iconBg: "bg-secondary/10",
-      progress: { current: summary.totalIncome, target: 170_000_000, percentage: incomePercent },
+      progress: { current: summary.totalIncome, target: incomeTarget, percentage: incomePercent },
       trend: { value: `${incomePercent}%`, direction: "up" as const, label: "dari target tercapai" },
     },
     {
