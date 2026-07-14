@@ -1,8 +1,7 @@
 "use client";
 
-import { Bell, HelpCircle, Search } from "lucide-react";
+import { Bell, HelpCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { useStore } from "@/lib/store";
 import { AppLogo } from "@/components/ui/app-logo";
 
@@ -14,19 +13,10 @@ export function Header() {
     <header className="sticky top-0 z-50 w-full h-16 bg-card/80 backdrop-blur-md border-b border-border">
       <div className="flex items-center justify-between h-full px-4 md:px-6 lg:px-8">
         <div className="flex items-center gap-2">
-          <AppLogo className="h-6 w-6 text-[#5C6AC4]" />
-          <span className="font-semibold text-lg text-primary hidden sm:block">
-            Manage Money
+          <AppLogo className="h-6 w-6 text-primary" />
+          <span className="font-semibold text-lg font-heading text-primary hidden sm:block">
+            Manajemen Keuangan
           </span>
-        </div>
-
-        {/* Search bar */}
-        <div className="hidden md:flex items-center bg-muted rounded-full px-4 py-1.5 border border-border max-w-xs w-full">
-          <Search className="h-4 w-4 text-muted-foreground mr-2" />
-          <Input
-            placeholder="Cari transaksi..."
-            className="border-0 bg-transparent p-0 h-7 text-sm focus-visible:ring-0 focus-visible:ring-offset-0"
-          />
         </div>
 
         <div className="flex items-center gap-2">

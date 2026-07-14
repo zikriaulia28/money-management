@@ -12,9 +12,10 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-import { Plus, PiggyBank, Home, Plane, Trash2, History as HistoryIcon } from "lucide-react";
+import { Plus, PiggyBank, Home, Plane, Target, Heart, Briefcase, Trash2, History as HistoryIcon } from "lucide-react";
 import { useStore, formatRupiah } from "@/lib/store";
 import { cachedFetch, clearCache } from "@/lib/fetch-cache";
+import { formatDeadline, MONTHS, getMonthIndex, parseRupiah } from "@/lib/utils";
 import {
   Select,
   SelectContent,
@@ -26,14 +27,6 @@ import {
 const calcPercent = (collected: number, target: number) =>
   Math.min(Math.round((collected / target) * 100), 100);
 
-function formatDeadline(dateStr?: string | null): string {
-  if (!dateStr) return "-";
-  const d = new Date(dateStr);
-  if (isNaN(d.getTime())) return "-";
-  const months = ["Jan", "Feb", "Mar", "Apr", "Mei", "Jun", "Jul", "Agu", "Sep", "Okt", "Nov", "Des"];
-  return `${months[d.getMonth()]} ${d.getFullYear()}`;
-}
-
 function getDeadlineMonths(deadline: string): number {
   const d = new Date(deadline);
   if (isNaN(d.getTime())) return 6;
@@ -43,18 +36,15 @@ function getDeadlineMonths(deadline: string): number {
   return Math.max(0, diff);
 }
 
-const monthMap: Record<string, number> = {
-  Jan: 0, Feb: 1, Mar: 2, Apr: 3, Mei: 4, Jun: 5,
-  Jul: 6, Agu: 7, Sep: 8, Okt: 9, Nov: 10, Des: 11,
-};
-
-const months = ["Jan", "Feb", "Mar", "Apr", "Mei", "Jun", "Jul", "Agu", "Sep", "Okt", "Nov", "Des"];
 const years = ["2023", "2024", "2025", "2026", "2027", "2028"];
 
 const colorStyles = [
   { icon: PiggyBank, iconColor: "text-primary", iconBg: "bg-primary/10", badgeBg: "bg-primary/10", badgeText: "text-primary", barColor: "bg-primary" },
   { icon: Home, iconColor: "text-orange-500", iconBg: "bg-orange-500/10", badgeBg: "bg-orange-500/10", badgeText: "text-orange-500", barColor: "bg-orange-500" },
   { icon: Plane, iconColor: "text-secondary", iconBg: "bg-secondary/10", badgeBg: "bg-secondary/10", badgeText: "text-secondary", barColor: "bg-secondary" },
+  { icon: Target, iconColor: "text-rose-500", iconBg: "bg-rose-500/10", badgeBg: "bg-rose-500/10", badgeText: "text-rose-500", barColor: "bg-rose-500" },
+  { icon: Heart, iconColor: "text-pink-500", iconBg: "bg-pink-500/10", badgeBg: "bg-pink-500/10", badgeText: "text-pink-500", barColor: "bg-pink-500" },
+  { icon: Briefcase, iconColor: "text-blue-600", iconBg: "bg-blue-600/10", badgeBg: "bg-blue-600/10", badgeText: "text-blue-600", barColor: "bg-blue-600" },
 ];
 
 type ApiGoal = {
@@ -182,11 +172,11 @@ export default function SavingsPage() {
 
   async function handleAddGoal() {
     if (!newName.trim() || !newTarget.trim()) return;
-    const targetValue = parseInt(newTarget.replace(/\./g, ""), 10);
+    const targetValue = parseRupiah(newTarget);
     if (isNaN(targetValue) || targetValue <= 0) return;
 
     // Convert "Mei 2026" to ISO date (last day of that month)
-    const monthIndex = monthMap[newMonth];
+    const monthIndex = getMonthIndex(newMonth);
     const year = parseInt(newYear, 10);
     const lastDay = new Date(year, monthIndex + 1, 0).getDate(); // last day of month
     const deadline = `${year}-${String(monthIndex + 1).padStart(2, "0")}-${String(lastDay).padStart(2, "0")}`;
@@ -221,7 +211,7 @@ export default function SavingsPage() {
 
   async function handleDeposit() {
     if (!depositGoalId || !depositAmount.trim()) return;
-    const amount = parseInt(depositAmount.replace(/\./g, ""), 10);
+    const amount = parseRupiah(depositAmount);
     if (isNaN(amount) || amount <= 0) return;
 
     setSubmitting(true);
@@ -254,7 +244,7 @@ export default function SavingsPage() {
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
-          <h1 className="text-lg md:text-2xl font-bold tracking-tight">Target Tabungan</h1>
+          <h1 className="text-lg md:text-2xl font-bold font-heading tracking-tight">Target Tabungan</h1>
           <p className="hidden md:block text-sm text-muted-foreground mt-1">Kelola target keuangan dan pantau progress tabungan</p>
         </div>
         <Button className="gap-2 w-full sm:w-auto" onClick={() => setDialogOpen(true)}>
@@ -361,7 +351,7 @@ export default function SavingsPage() {
               <div className="flex gap-2">
                 <Select value={newMonth} onValueChange={(value) => value && setNewMonth(value)}>
                   <SelectTrigger className="flex-1 h-9 text-sm"><SelectValue placeholder="Bulan" /></SelectTrigger>
-                  <SelectContent>{months.map((m) => (<SelectItem key={m} value={m}>{m}</SelectItem>))}</SelectContent>
+                  <SelectContent>{MONTHS.map((m) => (<SelectItem key={m} value={m}>{m}</SelectItem>))}</SelectContent>
                 </Select>
                 <Select value={newYear} onValueChange={(value) => value && setNewYear(value)}>
                   <SelectTrigger className="flex-1 h-9 text-sm"><SelectValue placeholder="Tahun" /></SelectTrigger>

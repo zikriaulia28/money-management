@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import {
   Table,
   TableBody,
@@ -41,6 +41,7 @@ import {
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { useStore, formatRupiah, formatDateDisplay } from "@/lib/store";
+import { parseRupiah, apiFetch } from "@/lib/utils";
 import { cachedFetch } from "@/lib/fetch-cache";
 import {
   Select,
@@ -55,19 +56,6 @@ import {
   ICON_COLOR_MAP,
   ICON_BG_MAP,
 } from "@/lib/categories";
-
-const categoryStyles = CATEGORY_COLOR_MAP;
-const iconColors = ICON_COLOR_MAP;
-const iconBg = ICON_BG_MAP;
-
-const filterableCategories = [
-  "Semua Kategori",
-  ...CATEGORIES.filter((c) => c.type === "expense").map((c) => c.value),
-];
-
-const INCOME_CATEGORIES = CATEGORIES.filter((c) => c.type === "income").map(
-  (c) => c.value,
-);
 
 const PERIODS = ["Bulan Ini", "Bulan Lalu", "3 Bulan", "Tahun Ini"];
 
@@ -117,17 +105,17 @@ function resolveCategoryIcon(name?: string | null): LucideIcon {
 
 function resolveIconBg(name?: string | null): string {
   if (!name) return "bg-muted";
-  return iconBg[name] || "bg-muted";
+  return ICON_BG_MAP[name] || "bg-muted";
 }
 
 function resolveIconColor(name?: string | null): string {
   if (!name) return "text-muted-foreground";
-  return iconColors[name] || "text-muted-foreground";
+  return ICON_COLOR_MAP[name] || "text-muted-foreground";
 }
 
 function resolveCategoryStyle(name?: string | null): string {
   if (!name) return "";
-  return categoryStyles[name] || "";
+  return CATEGORY_COLOR_MAP[name] || "";
 }
 
 export default function TransactionsPage() {
@@ -140,7 +128,6 @@ export default function TransactionsPage() {
 
   const [searchQuery, setSearchQuery] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("Semua Kategori");
-  const [userFilter, setUserFilter] = useState("Semua User");
   const [periodFilter, setPeriodFilter] = useState("Bulan Ini");
   const [currentPage, setCurrentPage] = useState(1);
 
@@ -214,18 +201,17 @@ export default function TransactionsPage() {
   }
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     fetchTransactions();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [categoryFilter, searchQuery, periodFilter]);
 
-  const filtered = useMemo(() => {
-    if (!periodFilter || periodFilter === "Semua Periode") return transactions;
-    return transactions;
-  }, [transactions, periodFilter]);
-
-  const totalPages = Math.max(1, Math.ceil(filtered.length / ITEMS_PER_PAGE));
+  const totalPages = Math.max(
+    1,
+    Math.ceil(transactions.length / ITEMS_PER_PAGE),
+  );
   const safePage = Math.min(currentPage, totalPages);
-  const paginated = filtered.slice(
+  const paginated = transactions.slice(
     (safePage - 1) * ITEMS_PER_PAGE,
     safePage * ITEMS_PER_PAGE,
   );
@@ -233,7 +219,6 @@ export default function TransactionsPage() {
   function resetFilter() {
     setSearchQuery("");
     setCategoryFilter("Semua Kategori");
-    setUserFilter("Semua User");
     setPeriodFilter("Bulan Ini");
     setCurrentPage(1);
   }
@@ -405,7 +390,7 @@ export default function TransactionsPage() {
       {/* Header */}
       <div className="flex items-center justify-between gap-3">
         <div>
-          <h1 className="text-lg md:text-2xl font-bold tracking-tight">
+          <h1 className="text-lg md:text-2xl font-bold font-heading tracking-tight">
             Riwayat Transaksi
           </h1>
           <p className="hidden md:block text-sm text-muted-foreground mt-1">
@@ -480,25 +465,6 @@ export default function TransactionsPage() {
                       {p}
                     </SelectItem>
                   ))}
-                </SelectContent>
-              </Select>
-
-              <Select
-                value={userFilter}
-                onValueChange={(value) => {
-                  if (value) {
-                    setUserFilter(value);
-                    setCurrentPage(1);
-                  }
-                }}
-              >
-                <SelectTrigger className="h-9 text-sm w-full md:w-[130px]">
-                  <SelectValue placeholder="Semua User" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="Semua User">Semua User</SelectItem>
-                  <SelectItem value="Suami">Suami</SelectItem>
-                  <SelectItem value="Istri">Istri</SelectItem>
                 </SelectContent>
               </Select>
 
@@ -651,7 +617,7 @@ export default function TransactionsPage() {
                                 className="fixed inset-0 z-40"
                                 onClick={() => setOpenMenuId(null)}
                               />
-                              <div className="absolute right-0 top-8 z-50 w-36 bg-popover border border-border rounded-xl shadow-lg py-1.5">
+                              <div className="absolute right-6 top-0 z-50 w-36 bg-popover border border-border rounded-xl shadow-lg py-1.5">
                                 <button
                                   onClick={() => {
                                     setOpenMenuId(null);
@@ -838,8 +804,8 @@ export default function TransactionsPage() {
             Menampilkan{" "}
             {paginated.length > 0 ? (safePage - 1) * ITEMS_PER_PAGE + 1 : 0}
             {" — "}
-            {Math.min(safePage * ITEMS_PER_PAGE, filtered.length)} dari{" "}
-            {filtered.length} transaksi
+            {Math.min(safePage * ITEMS_PER_PAGE, transactions.length)} dari{" "}
+            {transactions.length} transaksi
           </span>
           <div className="flex items-center gap-1.5">
             <button
@@ -1012,7 +978,10 @@ export default function TransactionsPage() {
       </Dialog>
 
       {/* Modal Edit */}
-      <Dialog open={!!editingTx} onOpenChange={(open) => !open && setEditingTx(null)}>
+      <Dialog
+        open={!!editingTx}
+        onOpenChange={(open) => !open && setEditingTx(null)}
+      >
         <DialogContent className="sm:max-w-[425px]">
           <DialogHeader>
             <DialogTitle>Edit Transaksi</DialogTitle>

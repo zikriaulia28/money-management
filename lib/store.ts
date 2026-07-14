@@ -60,7 +60,9 @@ export const formatRupiah = (value: number) =>
     currency: "IDR",
     minimumFractionDigits: 0,
     maximumFractionDigits: 0,
-  }).format(value);
+  })
+    .format(value)
+    .replace(/\u00A0/g, " ");
 
 export const formatDateDisplay = (dateStr: string) => {
   if (!dateStr || dateStr === "-") return "-";

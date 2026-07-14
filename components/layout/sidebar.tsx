@@ -30,10 +30,10 @@ export function Sidebar() {
       <aside className="hidden lg:flex flex-col fixed left-0 top-16 h-[calc(100vh-4rem)] w-64 border-r border-border bg-card z-30">
         {/* Branding */}
         <div className="flex flex-col items-center pt-8 pb-6 px-4">
-          <div className="w-16 h-16 rounded-xl bg-[#5C6AC4] flex items-center justify-center mb-4 shadow-lg">
+          <div className="w-16 h-16 rounded-xl bg-primary flex items-center justify-center mb-4 shadow-lg">
             <AppLogo className="h-8 w-8 text-white" />
           </div>
-          <h2 className="text-lg font-bold text-primary">Manage Money</h2>
+          <h2 className="text-lg font-bold font-heading text-primary">Manajemen Keuangan</h2>
           <p className="text-sm text-muted-foreground mt-0.5">Penasihat Keuangan</p>
         </div>
 

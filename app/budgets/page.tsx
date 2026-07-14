@@ -13,9 +13,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { useStore, formatRupiah, formatDateDisplay } from "@/lib/store";
+import { formatRupiah } from "@/lib/store";
 import { cachedFetch, clearCache } from "@/lib/fetch-cache";
 import { CATEGORIES } from "@/lib/categories";
+import { formatMonthDisplay, getMonthLabel, parseRupiah } from "@/lib/utils";
 import { Plus, Sparkles, PiggyBank, Trash2, Loader2, Save } from "lucide-react";
 import {
   Dialog,
@@ -83,24 +84,9 @@ const PRESETS: Record<string, { label: string; allocations: Record<string, numbe
   },
 };
 
-function getMonthLabel(offset = 0): string {
-  const d = new Date();
-  d.setMonth(d.getMonth() + offset);
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
-}
 
-function formatMonthDisplay(isoMonth: string): string {
-  const [y, m] = isoMonth.split("-").map(Number);
-  const months = [
-    "Jan", "Feb", "Mar", "Apr", "Mei", "Jun",
-    "Jul", "Agu", "Sep", "Okt", "Nov", "Des",
-  ];
-  return `${months[m - 1]} ${y}`;
-}
 
 export default function BudgetsPage() {
-  const activeUser = useStore((s) => s.activeUser);
-
   const [budgets, setBudgets] = useState<Budget[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -160,7 +146,7 @@ export default function BudgetsPage() {
 
   // ── Manual add ──
   async function handleAddBudget() {
-    const amountValue = parseInt(newAmount.replace(/\./g, ""), 10);
+    const amountValue = parseRupiah(newAmount);
     if (!newCategory || isNaN(amountValue) || amountValue <= 0 || !period) {
       setError("Mohon isi semua field dengan benar");
       return;
@@ -270,7 +256,7 @@ export default function BudgetsPage() {
     [wizardGoalAllocs]
   );
   const totalPercent = budgetCategoriesTotal + goalSavingsTotal;
-  const wizardIncomeValue = parseInt(wizardIncome.replace(/\./g, ""), 10) || 0;
+  const wizardIncomeValue = parseRupiah(wizardIncome) || 0;
 
   async function handleWizardGenerate() {
     if (wizardIncomeValue <= 0) {
@@ -343,7 +329,7 @@ export default function BudgetsPage() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
-          <h1 className="text-lg md:text-2xl font-bold tracking-tight">Anggaran</h1>
+          <h1 className="text-lg md:text-2xl font-bold font-heading tracking-tight">Anggaran</h1>
           <p className="hidden md:block text-sm text-muted-foreground mt-1">
             Atur batas pengeluaran per kategori
           </p>
@@ -525,22 +511,22 @@ export default function BudgetsPage() {
             {/* Step Indicator */}
             <div className="flex items-center gap-2 text-xs mb-2">
               <div className="flex items-center gap-1.5">
-                <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold ${wizardStep >= 1 ? "bg-indigo-100 text-indigo-600" : "bg-gray-100 text-gray-400"}`}>1</div>
+                <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold ${wizardStep >= 1 ? "bg-primary/10 text-primary" : "bg-muted text-muted-foreground"}`}>1</div>
                 <span className={wizardStep >= 1 ? "font-medium text-gray-700" : "text-gray-400"}>Pemasukan</span>
               </div>
               <div className="w-8 h-px bg-gray-300"></div>
               <div className="flex items-center gap-1.5">
-                <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold ${wizardStep >= 2 ? "bg-indigo-100 text-indigo-600" : "bg-gray-100 text-gray-400"}`}>2</div>
+                <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold ${wizardStep >= 2 ? "bg-primary/10 text-primary" : "bg-muted text-muted-foreground"}`}>2</div>
                 <span className={wizardStep >= 2 ? "font-medium text-gray-700" : "text-gray-400"}>Template</span>
               </div>
               <div className="w-8 h-px bg-gray-300"></div>
               <div className="flex items-center gap-1.5">
-                <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold ${wizardStep >= 3 ? "bg-indigo-100 text-indigo-600" : "bg-gray-100 text-gray-400"}`}>3</div>
+                <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold ${wizardStep >= 3 ? "bg-primary/10 text-primary" : "bg-muted text-muted-foreground"}`}>3</div>
                 <span className={wizardStep >= 3 ? "font-medium text-gray-700" : "text-gray-400"}>Alokasi</span>
               </div>
               <div className="w-8 h-px bg-gray-300"></div>
               <div className="flex items-center gap-1.5">
-                <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold ${wizardStep >= 4 ? "bg-indigo-100 text-indigo-600" : "bg-gray-100 text-gray-400"}`}>4</div>
+                <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold ${wizardStep >= 4 ? "bg-primary/10 text-primary" : "bg-muted text-muted-foreground"}`}>4</div>
                 <span className={wizardStep >= 4 ? "font-medium text-gray-700" : "text-gray-400"}>Jadi ✅</span>
               </div>
             </div>
@@ -608,7 +594,7 @@ export default function BudgetsPage() {
                       onClick={() => { applyPreset(key); setWizardStep(3); }}
                       className={`p-4 rounded-2xl border-2 text-center transition-all ${
                         wizardPreset === key
-                          ? "border-indigo-500 bg-indigo-50"
+                          ? "border-primary bg-primary/5"
                           : "border-gray-100 hover:border-gray-300"
                       }`}
                     >
@@ -697,8 +683,8 @@ export default function BudgetsPage() {
                 })}
 
                 {wizardActiveGoals.length > 0 && (
-                  <div className="mt-3 p-3 bg-indigo-50 rounded-xl border border-indigo-100">
-                    <h3 className="text-sm font-semibold text-indigo-800 mb-2">Alokasi untuk Target Tabungan</h3>
+                  <div className="mt-3 p-3 bg-primary/5 rounded-xl border border-primary/10">
+                    <h3 className="text-sm font-semibold text-primary mb-2">Alokasi untuk Target Tabungan</h3>
                     {wizardActiveGoals.map((goal) => (
                       <div key={goal.id} className="flex items-center gap-3 mb-2">
                         <span className="text-sm w-48 shrink-0 truncate">{goal.name}</span>
@@ -721,7 +707,7 @@ export default function BudgetsPage() {
                         </span>
                       </div>
                     ))}
-                    <div className="mt-2 text-xs text-indigo-600">
+                    <div className="mt-2 text-xs text-primary">
                       Total Alokasi Tabungan: {Object.values(wizardGoalAllocs).reduce((s, v) => s + (v || 0), 0)}%
                     </div>
                   </div>
@@ -759,12 +745,12 @@ export default function BudgetsPage() {
                       );
                     })}
                     {wizardActiveGoals.length > 0 && (
-                      <div className="pt-1 border-t border-indigo-100">
+                      <div className="pt-1 border-t border-primary/10">
                         {wizardActiveGoals.map((goal) => {
                           const pct = wizardGoalAllocs[goal.id] || 0;
                           const amt = wizardIncomeValue > 0 ? Math.round((wizardIncomeValue * pct) / 100) : 0;
                           return (
-                            <div key={goal.id} className="flex justify-between text-xs text-indigo-600">
+                            <div key={goal.id} className="flex justify-between text-xs text-primary">
                               <span>🐷 {goal.name}</span>
                               <span className="font-medium">{pct}% — {formatRupiah(amt)}</span>
                             </div>
@@ -772,7 +758,7 @@ export default function BudgetsPage() {
                         })}
                       </div>
                     )}
-                    <div className="flex justify-between text-sm font-semibold text-indigo-600 pt-1 border-t border-gray-200">
+                    <div className="flex justify-between text-sm font-semibold text-primary pt-1 border-t border-gray-200">
                       <span>Total</span>
                       <span>{formatRupiah(wizardIncomeValue)}</span>
                     </div>

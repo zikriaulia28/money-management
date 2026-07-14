@@ -185,7 +185,7 @@ export async function PUT(request: Request) {
     }
 
     if (user) {
-      let dbUser = await prisma.user.findFirst({ where: { role: user } });
+      const dbUser = await prisma.user.findFirst({ where: { role: user } });
       if (dbUser) updateData.userId = dbUser.id;
     }
 
