@@ -14,27 +14,22 @@ import {
 } from "@/components/ui/dialog";
 import {
   Plus,
-  Home,
-  Car,
-  CreditCard,
-  User,
-  GraduationCap,
-  DollarSign,
   AlertTriangle,
   CheckCircle2,
   Trash2,
 } from "lucide-react";
-import { useStore, formatRupiah, formatDateDisplay } from "@/lib/store";
-import { cachedFetch, clearCache } from "@/lib/fetch-cache";
+import { CATEGORIES, CATEGORY_ICON_MAP, ICON_BG_MAP, ICON_COLOR_MAP } from "@/lib/categories";
+import { parseRupiah } from "@/lib/utils";
+import { cachedFetch } from "@/lib/fetch-cache";
 
-const DEBT_CATEGORIES = [
-  { value: "KPR", label: "KPR", icon: Home, iconColor: "text-primary", iconBg: "bg-primary/10" },
-  { value: "Kredit Mobil", label: "Kredit Mobil", icon: Car, iconColor: "text-orange-500", iconBg: "bg-orange-500/10" },
-  { value: "Kartu Kredit", label: "Kartu Kredit", icon: CreditCard, iconColor: "text-secondary", iconBg: "bg-secondary/10" },
-  { value: "Pinjaman Pribadi", label: "Pinjaman Pribadi", icon: User, iconColor: "text-blue-500", iconBg: "bg-blue-500/10" },
-  { value: "Pendidikan", label: "Pendidikan", icon: GraduationCap, iconColor: "text-purple-500", iconBg: "bg-purple-500/10" },
-  { value: "Lainnya", label: "Lainnya", icon: DollarSign, iconColor: "text-muted-foreground", iconBg: "bg-muted" },
-];
+// Build DEBT_CATEGORIES on‑the‑fly from CATEGORIES (expense type only)
+const DEBT_CATEGORIES = CATEGORIES.filter((c) => c.type === "expense").map((c) => ({
+  value: c.value,
+  label: c.label,
+  icon: CATEGORY_ICON_MAP[c.value],
+  iconColor: ICON_COLOR_MAP[c.value] ?? "text-muted-foreground",
+  iconBg: ICON_BG_MAP[c.value] ?? "bg-muted",
+}));
 
 const debtIconMap: Record<string, { icon: React.ElementType; iconColor: string; iconBg: string }> = {};
 DEBT_CATEGORIES.forEach((c) => {
@@ -77,6 +72,8 @@ export default function DebtsPage() {
   const [newMonthly, setNewMonthly] = useState("");
   const [newDueDate, setNewDueDate] = useState("");
 
+  const [deleteTarget, setDeleteTarget] = useState<{ id: string; name: string } | null>(null);
+
   const userId = useMemo(() => `user-${activeUser.toLowerCase()}`, [activeUser]);
 
   async function fetchDebts() {
@@ -109,8 +106,8 @@ export default function DebtsPage() {
 
   async function handleAddDebt() {
     if (!newName.trim() || !newLender.trim() || !newTotal.trim() || !newMonthly.trim()) return;
-    const totalVal = parseInt(newTotal.replace(/\./g, ""), 10);
-    const monthlyVal = parseInt(newMonthly.replace(/\./g, ""), 10);
+    const totalVal = parseRupiah(newTotal);
+    const monthlyVal = parseRupiah(newMonthly);
     if (isNaN(totalVal) || totalVal <= 0 || isNaN(monthlyVal) || monthlyVal <= 0) return;
 
     setSubmitting(true);
@@ -206,7 +203,7 @@ export default function DebtsPage() {
   }
 
   async function handleDeleteDebt(debtId: string) {
-    if (!confirm("Apakah Anda yakin ingin menghapus cicilan ini?")) return;
+    setDeleteTarget(null);
     setSubmitting(true);
     setError(null);
     try {
@@ -236,7 +233,7 @@ export default function DebtsPage() {
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
-          <h1 className="text-lg md:text-2xl font-bold tracking-tight">Manajemen Cicilan</h1>
+          <h1 className="text-lg md:text-2xl font-bold font-heading tracking-tight">Manajemen Cicilan</h1>
           <p className="hidden md:block text-sm text-muted-foreground mt-1">Pantau cicilan dan utang keluarga</p>
         </div>
         <Button className="gap-2 w-full sm:w-auto" onClick={() => setDialogOpen(true)}>
@@ -273,7 +270,7 @@ export default function DebtsPage() {
         {loading ? (
           <p className="text-sm text-muted-foreground text-center py-8">Memuat data cicilan...</p>
         ) : debts.length === 0 ? (
-          <p className="text-sm text-muted-foreground text-center py-8">Belum ada cicilan. Klik "Cicilan Baru" untuk memulai.</p>
+          <p className="text-sm text-muted-foreground text-center py-8">Belum ada cicilan. Klik &quot;Cicilan Baru&quot; untuk memulai.</p>
         ) : (
           debts.map((debt) => {
             const style = getDebtStyle(debt.category);
@@ -314,7 +311,7 @@ export default function DebtsPage() {
                     <div className="flex gap-2">
                       <Button variant="outline" size="sm" className="h-8 text-xs" onClick={() => handlePayDebt(debt.id, debt.monthly)} disabled={submitting}>Bayar</Button>
                       <Button variant="ghost" size="sm" className="h-8 text-xs" onClick={() => handleToggleStatus(debt.id)} disabled={submitting}>{isPaid ? "Batal" : "Tandai Lunas"}</Button>
-                      <Button variant="ghost" size="sm" className="h-8 w-8 p-0 text-destructive hover:bg-destructive/10 hover:text-destructive" onClick={() => handleDeleteDebt(debt.id)} disabled={submitting}>
+                      <Button variant="ghost" size="sm" className="h-8 w-8 p-0 text-destructive hover:bg-destructive/10 hover:text-destructive" onClick={() => setDeleteTarget({ id: debt.id, name: debt.name })} disabled={submitting}>
                         <Trash2 className="h-4 w-4" />
                       </Button>
                     </div>
@@ -359,6 +356,26 @@ export default function DebtsPage() {
           <DialogFooter>
             <Button variant="outline" onClick={() => setDialogOpen(false)}>Batal</Button>
             <Button onClick={handleAddDebt} disabled={submitting || !newName.trim() || !newLender.trim() || !newTotal.trim() || !newMonthly.trim()}>{submitting ? "Menyimpan..." : "Simpan Cicilan"}</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Confirm Modal */}
+      <Dialog open={deleteTarget !== null} onOpenChange={(open) => { if (!open) setDeleteTarget(null); }}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Hapus Cicilan</DialogTitle>
+            <DialogDescription>
+              Yakin ingin menghapus <strong>{deleteTarget?.name}</strong>? Tindakan ini tidak bisa dibatalkan.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="gap-2">
+            <Button variant="outline" onClick={() => setDeleteTarget(null)}>
+              Batal
+            </Button>
+            <Button variant="destructive" onClick={() => deleteTarget && handleDeleteDebt(deleteTarget.id)}>
+              Ya, Hapus
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

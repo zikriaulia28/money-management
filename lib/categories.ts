@@ -1,3 +1,6 @@
+import { Home, Car, CreditCard, User, GraduationCap, DollarSign } from "lucide-react";
+import type { LucideIcon } from "lucide-react";
+
 // Shared, central definition of financial categories
 // Digunakan di: frontend components, filters, UI headers, dll.
 
@@ -123,6 +126,42 @@ export const CATEGORIES: Category[] = [
     icon: "MoreHorizontal",
     color: { bg: "bg-zinc-100", text: "text-zinc-700 dark:text-zinc-300" },
   },
+  // ── Debt specific categories (used only in debts page) ───────────────────────
+  {
+    value: "KPR",
+    label: "KPR",
+    type: "expense",
+    icon: "Home",
+    color: { bg: "bg-blue-100", text: "text-blue-700 dark:text-blue-300" },
+  },
+  {
+    value: "Kredit Mobil",
+    label: "Kredit Mobil",
+    type: "expense",
+    icon: "Car",
+    color: { bg: "bg-emerald-100", text: "text-emerald-700 dark:text-emerald-300" },
+  },
+  {
+    value: "Kartu Kredit",
+    label: "Kartu Kredit",
+    type: "expense",
+    icon: "CreditCard",
+    color: { bg: "bg-secondary-100", text: "text-secondary-700 dark:text-secondary-300" },
+  },
+  {
+    value: "Pinjaman Pribadi",
+    label: "Pinjaman Pribadi",
+    type: "expense",
+    icon: "User",
+    color: { bg: "bg-blue-100", text: "text-blue-700 dark:text-blue-300" },
+  },
+  {
+    value: "Pendidikan",
+    label: "Pendidikan",
+    type: "expense",
+    icon: "GraduationCap",
+    color: { bg: "bg-purple-100", text: "text-purple-700 dark:text-purple-300" },
+  },
 ];
 
 // Lookup helpers
@@ -169,3 +208,12 @@ export const ICON_BG_MAP: Record<string, string> = CATEGORIES.reduce(
   },
   {}
 );
+
+// Map icon name string → actual Lucide component
+const iconImports: Record<string, LucideIcon> = { Home, Car, CreditCard, User, GraduationCap, DollarSign };
+export const CATEGORY_ICON_MAP: Record<string, LucideIcon> = {};
+for (const cat of CATEGORIES) {
+  if (cat.icon in iconImports) {
+    CATEGORY_ICON_MAP[cat.value] = iconImports[cat.icon];
+  }
+}
