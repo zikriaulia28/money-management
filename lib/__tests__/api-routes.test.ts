@@ -6,7 +6,7 @@ const { mockPrisma } = vi.hoisted(() => {
     household: { findFirst: vi.fn(), create: vi.fn() },
     user: { findFirst: vi.fn(), create: vi.fn() },
     category: { findFirst: vi.fn(), findUnique: vi.fn(), findMany: vi.fn(), create: vi.fn() },
-    transaction: { findMany: vi.fn() },
+    transaction: { findMany: vi.fn(), create: vi.fn() },
     budget: { findMany: vi.fn(), upsert: vi.fn(), delete: vi.fn() },
     savingGoal: { findMany: vi.fn(), findUnique: vi.fn(), create: vi.fn(), update: vi.fn(), delete: vi.fn() },
     savingDeposit: { create: vi.fn() },
@@ -146,7 +146,7 @@ describe("POST /api/goals", () => {
 describe("PATCH /api/goals", () => {
   it("adds deposit and updates collected", async () => {
     (mockPrisma.savingGoal.findUnique as Mock).mockResolvedValue({
-      id: "g1", collected: 10000000, target: 50000000, completed: false,
+      id: "g1", collected: 10000000, target: 50000000, completed: false, name: "Dana Darurat",
     });
     (mockPrisma.savingGoal.update as Mock).mockResolvedValue({
       id: "g1", collected: 15000000, target: 50000000, completed: false,
@@ -256,6 +256,7 @@ describe("POST /api/debts", () => {
   it("handles pay action", async () => {
     (mockPrisma.debt.findUnique as Mock).mockResolvedValue({
       id: "d1", remaining: 8000000, monthly: 500000, dueStatus: "warning",
+      name: "KPR Rumah", category: "KPR", userId: "user-suami",
     });
     (mockPrisma.debt.update as Mock).mockResolvedValue({
       id: "d1", remaining: 5000000, dueStatus: "warning",

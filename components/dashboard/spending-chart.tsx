@@ -5,8 +5,6 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { cachedFetch } from "@/lib/fetch-cache";
 import { formatRupiah } from "@/lib/store";
 import {
-  Area,
-  AreaChart,
   XAxis,
   YAxis,
   CartesianGrid,
@@ -15,6 +13,10 @@ import {
   PieChart,
   Pie,
   Cell,
+  ComposedChart,
+  Bar,
+  Line,
+  ReferenceLine,
 } from "recharts";
 
 type SpendingCategory = {
@@ -38,6 +40,24 @@ const PIE_COLORS = [
   "#8b5cf6", "#ef4444", "#06b6d4", "#a855f7",
   "#ec4899", "#6b7280",
 ];
+
+function formatCompact(n: number): string {
+  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}jt`;
+  if (n >= 1_000) return `${(n / 1_000).toFixed(0)}rb`;
+  return `${n}`;
+}
+
+function CustomTooltip({ active, payload, label }: { active?: boolean; payload?: Array<{ value: number }>; label?: string }) {
+  if (!active || !payload?.length) return null;
+  const value = payload[0].value;
+  const isPeak = false; // ponytail: peak detection via context if needed
+  return (
+    <div className="bg-card border border-border rounded-lg shadow-lg px-3 py-2">
+      <p className="text-xs text-muted-foreground mb-1">{label}</p>
+      <p className="text-sm font-bold text-foreground">{formatRupiah(value)}</p>
+    </div>
+  );
+}
 
 export function SpendingChart() {
   const [data, setData] = useState<DashboardData>({ spendingByCategory: [], dailyTrend: [] });
@@ -165,47 +185,68 @@ export function SpendingChart() {
                 <p className="text-sm text-muted-foreground text-center pt-16">Belum ada data 30 hari terakhir</p>
               ) : (
                 <ResponsiveContainer width="100%" height="100%">
-                  <AreaChart data={data.dailyTrend} margin={{ top: 5, right: 10, left: 10, bottom: 5 }}>
+                  <ComposedChart data={data.dailyTrend} margin={{ top: 10, right: 10, left: 0, bottom: 5 }}>
                     <defs>
-                      <linearGradient id="gradient" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="0%" stopColor="#ef4444" stopOpacity={0.3} />
-                        <stop offset="50%" stopColor="#f59e0b" stopOpacity={0.2} />
-                        <stop offset="100%" stopColor="#22c55e" stopOpacity={0.05} />
+                      <linearGradient id="barGradient" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%" stopColor="var(--primary)" stopOpacity={0.85} />
+                        <stop offset="100%" stopColor="var(--primary)" stopOpacity={0.4} />
                       </linearGradient>
+                      <filter id="barShadow" x="-20%" y="-20%" width="140%" height="140%">
+                        <feDropShadow dx="0" dy="1" stdDeviation="1.5" floodColor="var(--primary)" floodOpacity="0.2" />
+                      </filter>
                     </defs>
-                    <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} />
+                    <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} opacity={0.5} />
                     <XAxis
                       dataKey="day"
                       axisLine={false}
                       tickLine={false}
-                      tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }}
-                      interval="preserveStartEnd"
+                      tick={{ fontSize: 10, fill: "var(--muted-foreground)" }}
+                      interval={4}
                     />
                     <YAxis
                       axisLine={false}
                       tickLine={false}
-                      tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }}
-                      tickFormatter={(v) => `Rp${(Number(v) / 1000).toFixed(0)}rb`}
-                      width={50}
+                      tick={{ fontSize: 10, fill: "var(--muted-foreground)" }}
+                      tickFormatter={(v) => Number(v) >= 1000000 ? `${(Number(v) / 1000000).toFixed(1)}jt` : Number(v) >= 1000 ? `${(Number(v) / 1000).toFixed(0)}rb` : `${v}`}
+                      width={48}
                     />
-                    <Tooltip
-                      contentStyle={{
-                        borderRadius: "8px",
-                        border: "1px solid hsl(var(--border))",
-                        fontSize: 12,
-                      }}
-                      formatter={(value) => [formatRupiah(Number(value)), "Pengeluaran"]}
+                    <Tooltip content={<CustomTooltip />} />
+                    <ReferenceLine
+                      y={avgDaily}
+                      stroke="#f97316"
+                      strokeDasharray="6 4"
+                      strokeWidth={1.5}
+                      label={{ value: `Rata2 ${formatCompact(avgDaily)}/hari`, position: "insideTopRight", fontSize: 10, fill: "#f97316", fontWeight: 600 }}
                     />
-                    <Area
+                    <Bar
+                      dataKey="amount"
+                      radius={[4, 4, 0, 0]}
+                      fill="url(#barGradient)"
+                      filter="url(#barShadow)"
+                      maxBarSize={20}
+                    >
+                      {data.dailyTrend.map((entry, i) => {
+                        const isPeak = entry.amount === Math.max(...data.dailyTrend.map(d => d.amount)) && entry.amount > 0;
+                        const isEmpty = entry.amount === 0;
+                        return (
+                          <Cell
+                            key={i}
+                            fill={isPeak ? "var(--destructive)" : isEmpty ? "var(--muted)" : "url(#barGradient)"}
+                            opacity={isEmpty ? 0.3 : 1}
+                          />
+                        );
+                      })}
+                    </Bar>
+                    <Line
                       type="monotone"
                       dataKey="amount"
-                      stroke="hsl(var(--primary))"
-                      strokeWidth={2.5}
-                      fill="url(#gradient)"
-                      dot={{ r: 3, fill: "hsl(var(--primary))", strokeWidth: 1, stroke: "hsl(var(--background))" }}
-                      activeDot={{ r: 6, fill: "#ef4444", stroke: "white", strokeWidth: 2 }}
+                      stroke="var(--primary)"
+                      strokeWidth={2}
+                      dot={false}
+                      activeDot={false}
+                      strokeOpacity={0}
                     />
-                  </AreaChart>
+                  </ComposedChart>
                 </ResponsiveContainer>
               )}
             </div>

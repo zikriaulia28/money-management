@@ -56,7 +56,13 @@ export function BudgetProgress() {
     }, [fetchData]);
 
   const topBudgets = useMemo(() => {
-    return budgets.slice(0, 3);
+    return [...budgets]
+      .sort((a, b) => {
+        const pctA = a.amount > 0 ? a.spent / a.amount : 0;
+        const pctB = b.amount > 0 ? b.spent / b.amount : 0;
+        return pctB - pctA; // highest usage first
+      })
+      .slice(0, 3);
   }, [budgets]);
 
   return (
@@ -76,15 +82,15 @@ export function BudgetProgress() {
             return (
               <div key={b.id} className="space-y-1.5">
                 <div className="flex justify-between items-center">
-                  <span className="text-sm font-medium">{b.category}</span>
-                  <span className="text-xs text-muted-foreground">
+                  <span className={`text-sm font-medium ${warning ? "text-destructive" : ""}`}>{b.category}</span>
+                  <span className={`text-xs ${warning ? "text-destructive font-medium" : "text-muted-foreground"}`}>
                     {formatRupiah(b.spent)} / {formatRupiah(b.amount)}
                   </span>
                 </div>
                 <div className="relative">
                   <Progress
                     value={pct}
-                    className={cn("h-2.5", warning && "[&>div]:bg-orange-500 [&>div]:dark:bg-orange-500")}
+                    className={cn("h-2.5", warning && "[&_[data-slot=progress-indicator]]:bg-destructive [&_[data-slot=progress-indicator]]:dark:bg-destructive")}
                   />
                 </div>
               </div>

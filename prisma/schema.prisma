@@ -106,6 +106,8 @@ model Transaction {
   userId      String
   user        User     @relation(fields: [userId], references: [id])
   note        String?  @db.Text
+  sourceType  String?  // "saving" | "debt" — asal transaksi
+  sourceId    String?  // goalId atau debtId
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

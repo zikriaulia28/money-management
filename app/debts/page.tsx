@@ -22,10 +22,10 @@ import {
 import { CATEGORIES, CATEGORY_ICON_MAP, ICON_BG_MAP, ICON_COLOR_MAP } from "@/lib/categories";
 import { useStore, formatRupiah, formatDateDisplay } from "@/lib/store";
 import { parseRupiah } from "@/lib/utils";
-import { cachedFetch } from "@/lib/fetch-cache";
+import { cachedFetch, clearCache } from "@/lib/fetch-cache";
 
-// Build DEBT_CATEGORIES on‑the‑fly from CATEGORIES (expense type only)
-const DEBT_CATEGORIES = CATEGORIES.filter((c) => c.type === "expense").map((c) => ({
+// Build DEBT_CATEGORIES on‐the‐fly from CATEGORIES (debt scope only)
+const DEBT_CATEGORIES = CATEGORIES.filter((c) => c.scope === "debt").map((c) => ({
   value: c.value,
   label: c.label,
   icon: CATEGORY_ICON_MAP[c.value],
@@ -94,6 +94,13 @@ export default function DebtsPage() {
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     fetchDebts();
+  }, [fetchDebts]);
+
+  // Auto-refresh: ketika user balik ke tab ini
+  useEffect(() => {
+    const onFocus = () => { clearCache(); fetchDebts(); };
+    window.addEventListener("focus", onFocus);
+    return () => window.removeEventListener("focus", onFocus);
   }, [fetchDebts]);
 
   const totals = useMemo(() => {
@@ -171,6 +178,7 @@ export default function DebtsPage() {
         throw new Error(text || `Gagal bayar cicilan: ${res.status}`);
       }
 
+      clearCache();
       fetchDebts();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Terjadi kesalahan");
@@ -197,6 +205,7 @@ export default function DebtsPage() {
         throw new Error(text || `Gagal memperbarui status: ${res.status}`);
       }
 
+      clearCache();
       fetchDebts();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Terjadi kesalahan");
@@ -224,6 +233,7 @@ export default function DebtsPage() {
         throw new Error(text || `Gagal menghapus cicilan: ${res.status}`);
       }
 
+      clearCache();
       fetchDebts();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Terjadi kesalahan");
@@ -318,8 +328,10 @@ export default function DebtsPage() {
                       )}
                     </div>
                     <div className="flex gap-2">
-                      <Button variant="outline" size="sm" className="h-8 text-xs" onClick={() => handlePayDebt(debt.id, debt.monthly)} disabled={submitting}>Bayar</Button>
-                      <Button variant="ghost" size="sm" className="h-8 text-xs" onClick={() => handleToggleStatus(debt.id)} disabled={submitting}>{isPaid ? "Batal" : "Tandai Lunas"}</Button>
+                      {!isPaid && debt.remaining > 0 && (
+                        <Button variant="outline" size="sm" className="h-8 text-xs" onClick={() => handlePayDebt(debt.id, debt.monthly)} disabled={submitting}>Bayar</Button>
+                      )}
+                      <Button variant="ghost" size="sm" className="h-8 text-xs" onClick={() => handleToggleStatus(debt.id)} disabled={submitting || debt.remaining > 0} title={debt.remaining > 0 ? "Lunasi dulu sebelum tandai lunas" : undefined}>{isPaid ? "Batal" : "Tandai Lunas"}</Button>
                       <Button variant="ghost" size="sm" className="h-8 w-8 p-0 text-destructive hover:bg-destructive/10 hover:text-destructive" onClick={() => setDeleteTarget({ id: debt.id, name: debt.name })} disabled={submitting}>
                         <Trash2 className="h-4 w-4" />
                       </Button>

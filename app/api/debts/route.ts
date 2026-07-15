@@ -55,6 +55,32 @@ export async function POST(request: Request) {
         const newRemaining = Math.max(0, debt.remaining - safeAmount);
         const monthlyNum = Number(debt.monthly);
 
+        // Create Transaction record so debt payment affects balance & shows in transactions
+        if (safeAmount > 0) {
+          const debtUser = await prisma.user.findFirst({ where: { id: debt.userId } });
+          if (debtUser) {
+            let txCategory = await prisma.category.findFirst({ where: { name: debt.category } });
+            if (!txCategory) {
+              txCategory = await prisma.category.create({
+                data: { name: debt.category, icon: "CreditCard", type: "expense" },
+              });
+            }
+            await prisma.transaction.create({
+              data: {
+                name: `Bayar ${debt.name}`,
+                amount: -Math.abs(safeAmount),
+                type: "pengeluaran",
+                date: new Date(),
+                categoryId: txCategory.id,
+                userId: debtUser.id,
+                note: `Cicilan ${debt.category}`,
+                sourceType: "debt",
+                sourceId: id,
+              },
+            });
+          }
+        }
+
         const updated = await prisma.debt.update({
           where: { id: debt.id },
           data: {
@@ -71,6 +97,11 @@ export async function POST(request: Request) {
         const debt = await prisma.debt.findUnique({ where: { id } });
         if (!debt) {
           return NextResponse.json({ error: "Cicilan tidak ditemukan" }, { status: 404 });
+        }
+
+        // Prevent marking as lunas when remaining > 0
+        if (debt.dueStatus !== "paid" && debt.remaining > 0) {
+          return NextResponse.json({ error: "Lunasi dulu sebelum tandai lunas" }, { status: 400 });
         }
 
         const nextStatus = debt.dueStatus === "paid" ? "warning" : "paid";

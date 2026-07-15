@@ -217,7 +217,7 @@ export default function SavingsPage() {
     setSubmitting(true);
     setError(null);
     try {
-      const res = await fetch(`/api/goals?id=${encodeURIComponent(depositGoalId)}&amount=${encodeURIComponent(amount)}`, {
+      const res = await fetch(`/api/goals?id=${encodeURIComponent(depositGoalId)}&amount=${encodeURIComponent(amount)}&user=${encodeURIComponent(activeUser)}`, {
         method: "PATCH",
       });
       if (!res.ok) {

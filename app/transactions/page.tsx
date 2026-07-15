@@ -38,11 +38,12 @@ import {
   Film,
   TrendingUp,
   MoreHorizontal,
+  Trash2,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { useStore, formatRupiah, formatDateDisplay } from "@/lib/store";
 import { parseRupiah, apiFetch } from "@/lib/utils";
-import { cachedFetch } from "@/lib/fetch-cache";
+import { cachedFetch, clearCache } from "@/lib/fetch-cache";
 import {
   Select,
   SelectContent,
@@ -52,6 +53,7 @@ import {
 } from "@/components/ui/select";
 import {
   CATEGORIES,
+  TRANSACTION_CATEGORIES,
   CATEGORY_COLOR_MAP,
   ICON_COLOR_MAP,
   ICON_BG_MAP,
@@ -136,7 +138,7 @@ export default function TransactionsPage() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [newName, setNewName] = useState("");
   const [newCategory, setNewCategory] = useState(
-    CATEGORIES.filter((c) => c.type === "expense")[0]?.value ?? "",
+    TRANSACTION_CATEGORIES.filter((c) => c.type === "expense")[0]?.value ?? "",
   );
   const [newAmount, setNewAmount] = useState("");
   const [newType, setNewType] = useState<"pengeluaran" | "pemasukan">(
@@ -211,6 +213,13 @@ export default function TransactionsPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [categoryFilter, searchQuery, periodFilter, currentPage]);
 
+  // Auto-refresh: ketika user balik ke tab ini
+  useEffect(() => {
+    const onFocus = () => { clearCache(); fetchTransactions(true); };
+    window.addEventListener("focus", onFocus);
+    return () => window.removeEventListener("focus", onFocus);
+  }, []);
+
   const totalPages = Math.max(
     1,
     Math.ceil(total / ITEMS_PER_PAGE),
@@ -260,7 +269,7 @@ export default function TransactionsPage() {
         setNewAmount("");
         setNewNote("");
         setNewCategory(
-          CATEGORIES.filter((c) => c.type === "expense")[0]?.value ?? "",
+          TRANSACTION_CATEGORIES.filter((c) => c.type === "expense")[0]?.value ?? "",
         );
         setNewType("pengeluaran");
         setCurrentPage(1);
@@ -354,6 +363,7 @@ export default function TransactionsPage() {
           throw new Error(text || `Gagal menghapus transaksi: ${res.status}`);
         }
         fetchTransactions(true);
+        clearCache();
         setDeletingTx(null);
       })
       .catch((err) => {
@@ -446,7 +456,7 @@ export default function TransactionsPage() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="Semua Kategori">Semua Kategori</SelectItem>
-                  {CATEGORIES.filter((c) => c.type === "expense").map((cat) => (
+                  {TRANSACTION_CATEGORIES.filter((c) => c.type === "expense").map((cat) => (
                     <SelectItem key={cat.value} value={cat.value}>
                       {cat.label}
                     </SelectItem>
@@ -862,7 +872,7 @@ export default function TransactionsPage() {
           </DialogHeader>
           <div className="grid gap-4 py-4 max-h-[60vh] overflow-y-auto pr-1">
             <div className="grid gap-2">
-              <label className="text-sm font-medium">Nama Transaksi</label>
+              <label className="text-[13px] font-medium text-muted-foreground">Nama Transaksi</label>
               <Input
                 placeholder="Mis: Gaji Bulanan, Makan Siang..."
                 value={newName}
@@ -870,7 +880,7 @@ export default function TransactionsPage() {
               />
             </div>
             <div className="grid gap-2">
-              <label className="text-sm font-medium">Tipe</label>
+              <label className="text-[13px] font-medium text-muted-foreground">Tipe</label>
               <div className="flex gap-2">
                 <button
                   type="button"
@@ -880,7 +890,7 @@ export default function TransactionsPage() {
                       CATEGORIES.find((c) => c.type === "expense")?.value ?? "",
                     );
                   }}
-                  className={`flex-1 py-2 rounded-lg text-sm font-medium transition-colors ${newType === "pengeluaran" ? "bg-destructive/10 text-destructive border border-destructive/30" : "bg-muted text-muted-foreground border border-border"}`}
+                  className={`flex-1 py-2.5 rounded-lg text-sm font-medium transition-[scale,background-color] duration-150 ease-out active:scale-[0.96] ${newType === "pengeluaran" ? "bg-destructive/10 text-destructive border border-destructive/30 shadow-sm" : "bg-muted text-muted-foreground border border-border hover:bg-muted/80"}`}
                 >
                   Pengeluaran
                 </button>
@@ -892,14 +902,14 @@ export default function TransactionsPage() {
                       CATEGORIES.find((c) => c.type === "income")?.value ?? "",
                     );
                   }}
-                  className={`flex-1 py-2 rounded-lg text-sm font-medium transition-colors ${newType === "pemasukan" ? "bg-secondary/10 text-secondary border border-secondary/30" : "bg-muted text-muted-foreground border border-border"}`}
+                  className={`flex-1 py-2.5 rounded-lg text-sm font-medium transition-[scale,background-color] duration-150 ease-out active:scale-[0.96] ${newType === "pemasukan" ? "bg-secondary/10 text-secondary border border-secondary/30 shadow-sm" : "bg-muted text-muted-foreground border border-border hover:bg-muted/80"}`}
                 >
                   Pemasukan
                 </button>
               </div>
             </div>
             <div className="grid gap-2">
-              <label className="text-sm font-medium">Kategori</label>
+              <label className="text-[13px] font-medium text-muted-foreground">Kategori</label>
               <Select
                 value={newCategory}
                 onValueChange={(value) => value && setNewCategory(value)}
@@ -908,7 +918,7 @@ export default function TransactionsPage() {
                   <SelectValue placeholder="Pilih kategori" />
                 </SelectTrigger>
                 <SelectContent>
-                  {CATEGORIES.filter(
+                  {TRANSACTION_CATEGORIES.filter(
                     (cat) =>
                       cat.type ===
                       (newType === "pengeluaran" ? "expense" : "income"),
@@ -921,7 +931,7 @@ export default function TransactionsPage() {
               </Select>
             </div>
             <div className="grid gap-2">
-              <label className="text-sm font-medium">Jumlah (Rp)</label>
+              <label className="text-[13px] font-medium text-muted-foreground">Jumlah (Rp)</label>
               <Input
                 type="text"
                 inputMode="numeric"
@@ -938,26 +948,26 @@ export default function TransactionsPage() {
               />
             </div>
             <div className="grid gap-2">
-              <label className="text-sm font-medium">Dicatat oleh</label>
+              <label className="text-[13px] font-medium text-muted-foreground">Dicatat oleh</label>
               <div className="flex gap-2">
                 <button
                   type="button"
                   onClick={() => setNewUser("Suami")}
-                  className={`flex-1 py-2 rounded-lg text-sm font-medium transition-colors ${newUser === "Suami" ? "bg-primary/10 text-primary border border-primary/30" : "bg-muted text-muted-foreground border border-border"}`}
+                  className={`flex-1 py-2.5 rounded-lg text-sm font-medium transition-[scale,background-color] duration-150 ease-out active:scale-[0.96] ${newUser === "Suami" ? "bg-primary/10 text-primary border border-primary/30 shadow-sm" : "bg-muted text-muted-foreground border border-border hover:bg-muted/80"}`}
                 >
                   Suami
                 </button>
                 <button
                   type="button"
                   onClick={() => setNewUser("Istri")}
-                  className={`flex-1 py-2 rounded-lg text-sm font-medium transition-colors ${newUser === "Istri" ? "bg-primary/10 text-primary border border-primary/30" : "bg-muted text-muted-foreground border border-border"}`}
+                  className={`flex-1 py-2.5 rounded-lg text-sm font-medium transition-[scale,background-color] duration-150 ease-out active:scale-[0.96] ${newUser === "Istri" ? "bg-primary/10 text-primary border border-primary/30 shadow-sm" : "bg-muted text-muted-foreground border border-border hover:bg-muted/80"}`}
                 >
                   Istri
                 </button>
               </div>
             </div>
             <div className="grid gap-2">
-              <label className="text-sm font-medium">Catatan (opsional)</label>
+              <label className="text-[13px] font-medium text-muted-foreground">Catatan (opsional)</label>
               <Input
                 placeholder="Mis: kebutuhan bulanan..."
                 value={newNote}
@@ -966,12 +976,13 @@ export default function TransactionsPage() {
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setDialogOpen(false)}>
+            <Button variant="outline" onClick={() => setDialogOpen(false)} className="active:scale-[0.96] transition-transform duration-150 ease-out">
               Batal
             </Button>
             <Button
               onClick={handleAddTransaction}
               disabled={submitting || !newName.trim() || !newAmount.trim()}
+              className="active:scale-[0.96] transition-transform duration-150 ease-out"
             >
               {submitting ? "Menyimpan..." : "Simpan Transaksi"}
             </Button>
@@ -993,7 +1004,7 @@ export default function TransactionsPage() {
           </DialogHeader>
           <div className="grid gap-4 py-4 max-h-[60vh] overflow-y-auto pr-1">
             <div className="grid gap-2">
-              <label className="text-sm font-medium">Nama Transaksi</label>
+              <label className="text-[13px] font-medium text-muted-foreground">Nama Transaksi</label>
               <Input
                 value={editFields.name}
                 onChange={(e) =>
@@ -1003,7 +1014,7 @@ export default function TransactionsPage() {
             </div>
 
             <div className="grid gap-2">
-              <label className="text-sm font-medium">Tipe</label>
+              <label className="text-[13px] font-medium text-muted-foreground">Tipe</label>
               <div className="flex gap-2">
                 <button
                   type="button"
@@ -1016,10 +1027,10 @@ export default function TransactionsPage() {
                         "",
                     }))
                   }
-                  className={`flex-1 py-2 rounded-lg text-sm font-medium transition-colors ${
+                  className={`flex-1 py-2.5 rounded-lg text-sm font-medium transition-[scale,background-color] duration-150 ease-out active:scale-[0.96] ${
                     editFields.type === "pengeluaran"
                       ? "bg-destructive/10 text-destructive border border-destructive/30"
-                      : "bg-muted text-muted-foreground border border-border"
+                      : "bg-muted text-muted-foreground border border-border hover:bg-muted/80"
                   }`}
                 >
                   Pengeluaran
@@ -1035,10 +1046,10 @@ export default function TransactionsPage() {
                         "",
                     }))
                   }
-                  className={`flex-1 py-2 rounded-lg text-sm font-medium transition-colors ${
+                  className={`flex-1 py-2.5 rounded-lg text-sm font-medium transition-[scale,background-color] duration-150 ease-out active:scale-[0.96] ${
                     editFields.type === "pemasukan"
                       ? "bg-secondary/10 text-secondary border border-secondary/30"
-                      : "bg-muted text-muted-foreground border border-border"
+                      : "bg-muted text-muted-foreground border border-border hover:bg-muted/80"
                   }`}
                 >
                   Pemasukan
@@ -1047,7 +1058,7 @@ export default function TransactionsPage() {
             </div>
 
             <div className="grid gap-2">
-              <label className="text-sm font-medium">Kategori</label>
+              <label className="text-[13px] font-medium text-muted-foreground">Kategori</label>
               <Select
                 value={editFields.category}
                 onValueChange={(value) =>
@@ -1058,7 +1069,7 @@ export default function TransactionsPage() {
                   <SelectValue placeholder="Pilih kategori" />
                 </SelectTrigger>
                 <SelectContent>
-                  {CATEGORIES.filter(
+                  {TRANSACTION_CATEGORIES.filter(
                     (cat) =>
                       cat.type ===
                       (editFields.type === "pengeluaran"
@@ -1074,7 +1085,7 @@ export default function TransactionsPage() {
             </div>
 
             <div className="grid gap-2">
-              <label className="text-sm font-medium">Jumlah (Rp)</label>
+              <label className="text-[13px] font-medium text-muted-foreground">Jumlah (Rp)</label>
               <Input
                 type="text"
                 inputMode="numeric"
@@ -1096,17 +1107,17 @@ export default function TransactionsPage() {
             </div>
 
             <div className="grid gap-2">
-              <label className="text-sm font-medium">Dicatat oleh</label>
+              <label className="text-[13px] font-medium text-muted-foreground">Dicatat oleh</label>
               <div className="flex gap-2">
                 <button
                   type="button"
                   onClick={() =>
                     setEditFields((prev) => ({ ...prev, user: "Suami" }))
                   }
-                  className={`flex-1 py-2 rounded-lg text-sm font-medium transition-colors ${
+                  className={`flex-1 py-2.5 rounded-lg text-sm font-medium transition-[scale,background-color] duration-150 ease-out active:scale-[0.96] ${
                     editFields.user === "Suami"
                       ? "bg-primary/10 text-primary border border-primary/30"
-                      : "bg-muted text-muted-foreground border border-border"
+                      : "bg-muted text-muted-foreground border border-border hover:bg-muted/80"
                   }`}
                 >
                   Suami
@@ -1116,10 +1127,10 @@ export default function TransactionsPage() {
                   onClick={() =>
                     setEditFields((prev) => ({ ...prev, user: "Istri" }))
                   }
-                  className={`flex-1 py-2 rounded-lg text-sm font-medium transition-colors ${
+                  className={`flex-1 py-2.5 rounded-lg text-sm font-medium transition-[scale,background-color] duration-150 ease-out active:scale-[0.96] ${
                     editFields.user === "Istri"
                       ? "bg-primary/10 text-primary border border-primary/30"
-                      : "bg-muted text-muted-foreground border border-border"
+                      : "bg-muted text-muted-foreground border border-border hover:bg-muted/80"
                   }`}
                 >
                   Istri
@@ -1128,7 +1139,7 @@ export default function TransactionsPage() {
             </div>
 
             <div className="grid gap-2">
-              <label className="text-sm font-medium">Catatan (opsional)</label>
+              <label className="text-[13px] font-medium text-muted-foreground">Catatan (opsional)</label>
               <Input
                 placeholder="Catatan..."
                 value={editFields.note}
@@ -1139,7 +1150,7 @@ export default function TransactionsPage() {
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setEditingTx(null)}>
+            <Button variant="outline" onClick={() => setEditingTx(null)} className="active:scale-[0.96] transition-transform duration-150 ease-out">
               Batal
             </Button>
             <Button
@@ -1149,6 +1160,7 @@ export default function TransactionsPage() {
                 !editFields.name.trim() ||
                 !editFields.amount.trim()
               }
+              className="active:scale-[0.96] transition-transform duration-150 ease-out"
             >
               {submitting ? "Menyimpan..." : "Simpan"}
             </Button>
@@ -1157,42 +1169,40 @@ export default function TransactionsPage() {
       </Dialog>
 
       {/* Modal Delete Confirmation */}
-      {deletingTx && (
-        <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4">
-          <div className="bg-card rounded-xl border border-border shadow-lg max-w-sm w-full p-6 space-y-4">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-full bg-destructive/10 flex items-center justify-center shrink-0">
-                <span className="text-destructive text-lg">🗑</span>
-              </div>
-              <div>
-                <h2 className="text-lg font-semibold">Hapus Transaksi</h2>
-                <p className="text-sm text-muted-foreground">
-                  Yakin ingin menghapus transaksi ini?
-                </p>
-              </div>
-            </div>
-            <div className="bg-muted/50 rounded-lg p-3 text-sm">
-              <span className="font-medium">{deletingTx.name}</span>
-              <span className="text-muted-foreground ml-2">
-                — {deletingTx.amount >= 0 ? "+" : ""}
-                {formatRupiah(deletingTx.amount)}
+      <Dialog open={!!deletingTx} onOpenChange={(open) => !open && setDeletingTx(null)}>
+        <DialogContent className="sm:max-w-[380px]">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2.5">
+              <span className="inline-flex items-center justify-center w-9 h-9 rounded-full bg-destructive/10 text-destructive">
+                <Trash2 className="h-4 w-4" />
               </span>
-            </div>
-            <div className="flex items-center justify-end gap-3 pt-1">
-              <Button variant="outline" onClick={() => setDeletingTx(null)}>
-                Batal
-              </Button>
-              <Button
-                variant="destructive"
-                onClick={handleDeleteConfirm}
-                disabled={submitting}
-              >
-                {submitting ? "Menghapus..." : "Ya, Hapus"}
-              </Button>
-            </div>
+              Hapus Transaksi
+            </DialogTitle>
+            <DialogDescription>
+              Yakin ingin menghapus transaksi ini? Tindakan ini tidak dapat dibatalkan.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="bg-muted/50 rounded-lg p-3 text-sm flex justify-between">
+            <span className="font-medium">{deletingTx?.name}</span>
+            <span className={deletingTx && deletingTx.amount >= 0 ? "text-green-600" : "text-destructive"}>
+              {deletingTx ? `${deletingTx.amount >= 0 ? "+" : "-"}${formatRupiah(Math.abs(deletingTx.amount))}` : ""}
+            </span>
           </div>
-        </div>
-      )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDeletingTx(null)} className="active:scale-[0.96] transition-transform duration-150 ease-out">
+              Batal
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={handleDeleteConfirm}
+              disabled={submitting}
+              className="active:scale-[0.96] transition-transform duration-150 ease-out"
+            >
+              {submitting ? "Menghapus..." : "Ya, Hapus"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

@@ -8,6 +8,7 @@ import {
   Wallet,
   PiggyBank,
   CreditCard,
+  FileText,
   Plus,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -19,6 +20,7 @@ const navItems = [
   { href: "/budgets", label: "Anggaran", shortLabel: "Anggaran", icon: Wallet },
   { href: "/savings", label: "Tabungan", shortLabel: "Tabungan", icon: PiggyBank },
   { href: "/debts", label: "Hutang", shortLabel: "Hutang", icon: CreditCard },
+  { href: "/reports", label: "Laporan", shortLabel: "Laporan", icon: FileText },
 ];
 
 export function Sidebar() {

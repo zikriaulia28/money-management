@@ -289,6 +289,42 @@ export async function DELETE(request: Request) {
       return NextResponse.json({ error: "Transaksi tidak ditemukan" }, { status: 404 });
     }
 
+    // Reverse side effects if transaction came from saving or debt
+    if (existing.sourceType === "saving" && existing.sourceId) {
+      const goal = await prisma.savingGoal.findUnique({ where: { id: existing.sourceId } });
+      if (goal) {
+        const reversedCollected = Math.max(0, goal.collected - Math.abs(existing.amount));
+        await prisma.savingGoal.update({
+          where: { id: goal.id },
+          data: {
+            collected: reversedCollected,
+            completed: reversedCollected >= goal.target,
+          },
+        });
+        // Delete latest deposit that matches this transaction amount
+        await prisma.savingDeposit.deleteMany({
+          where: {
+            goalId: goal.id,
+            amount: Math.abs(existing.amount),
+          },
+        });
+      }
+    }
+
+    if (existing.sourceType === "debt" && existing.sourceId) {
+      const debt = await prisma.debt.findUnique({ where: { id: existing.sourceId } });
+      if (debt) {
+        const reversedRemaining = debt.remaining + Math.abs(existing.amount);
+        await prisma.debt.update({
+          where: { id: debt.id },
+          data: {
+            remaining: reversedRemaining,
+            dueStatus: reversedRemaining > 0 ? "warning" : debt.dueStatus,
+          },
+        });
+      }
+    }
+
     await prisma.transaction.delete({ where: { id } });
     return NextResponse.json({ success: true });
   } catch (error) {

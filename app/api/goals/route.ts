@@ -131,6 +131,31 @@ export async function PATCH(request: Request) {
           date: new Date(),
         },
       });
+
+      // Create Transaction record so deposit affects balance & shows in transactions
+      const depositUser = searchParams.get("user") || "Suami";
+      const dbUser = await prisma.user.findFirst({ where: { role: depositUser } });
+      if (dbUser) {
+        let txCategory = await prisma.category.findFirst({ where: { name: "Tabungan" } });
+        if (!txCategory) {
+          txCategory = await prisma.category.create({
+            data: { name: "Tabungan", icon: "PiggyBank", type: "expense" },
+          });
+        }
+        await prisma.transaction.create({
+          data: {
+            name: `Setor ${existing.name}`,
+            amount: -Math.abs(amountNum),
+            type: "pengeluaran",
+            date: new Date(),
+            categoryId: txCategory.id,
+            userId: dbUser.id,
+            note: note || `Setoran tabungan ${existing.name}`,
+            sourceType: "saving",
+            sourceId: id,
+          },
+        });
+      }
     }
 
     if (complete !== null) {
