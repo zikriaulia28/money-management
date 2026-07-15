@@ -40,7 +40,7 @@ function getPeriodRange(period: string | null) {
 export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
-    const user = searchParams.get("user");
+    const userParam = searchParams.get("user");
     const period = searchParams.get("period");
     const q = searchParams.get("q");
     const category = searchParams.get("category");
@@ -54,6 +54,14 @@ export async function GET(request: Request) {
     const household = await prisma.household.findFirst({ where: { name: "Keluarga" } });
     if (household) {
       where.user = { householdId: household.id };
+    }
+
+    // Filter by user role (Suami/Istri) - this is what frontend calls with ?user=...
+    if (userParam && (userParam === "Suami" || userParam === "Istri")) {
+      where.user = {
+        ...(where.user as object),
+        role: userParam
+      };
     }
 
     const range = getPeriodRange(period);
@@ -124,46 +132,62 @@ export async function POST(request: Request) {
       const firstError = parsed.error.issues[0];
       return NextResponse.json({ error: firstError.message }, { status: 400 });
     }
-    const { name, amount, type, date, category, user, note } = parsed.data;
-
-    let household = await prisma.household.findFirst({ where: { name: "Keluarga" } });
-    if (!household) {
-      household = await prisma.household.create({
-        data: { id: "default-household", name: "Keluarga" },
-      });
-    }
+    const { name, amount, type, date, category, user: userRole, note } = parsed.data;
+    const user = userRole!; // Zod schema guarantees this exists
 
     let dbUser = await prisma.user.findFirst({ where: { role: user } });
     if (!dbUser) {
+      const household = await prisma.household.findFirst({ where: { name: "Keluarga" } });
+      if (!household) {
+        return NextResponse.json({ error: "Household tidak ditemukan" }, { status: 400 });
+      }
       dbUser = await prisma.user.create({
         data: { id: `user-${user.toLowerCase()}`, role: user, name: user, householdId: household.id },
       });
     }
 
-    let dbCat = await prisma.category.findUnique({ where: { name: category } });
-    if (!dbCat) {
-      dbCat = await prisma.category.create({
-        data: { name: category, icon: "Circle", type },
-      });
-    }
+    let dbCat = await prisma.category.findUnique({ where: { name: category! } });
+        if (!dbCat) {
+          dbCat = await prisma.category.create({
+            data: {
+              name: category!,
+              icon: "MoreHorizontal",
+              type: type === "pengeluaran" ? "expense" : "income",
+            },
+          });
+        }
 
-    const transaction = await prisma.transaction.create({
+    const tx = await prisma.transaction.create({
       data: {
         name,
-        amount: Number(amount),
+        amount: type === "pengeluaran" ? -Math.abs(amount) : Math.abs(amount),
         type,
         date: new Date(date),
         categoryId: dbCat.id,
         userId: dbUser.id,
-        note: note ?? null,
+        note,
       },
-      include: { category: true },
+      include: { category: true, user: true },
     });
 
-    return NextResponse.json({ transaction }, { status: 201 });
+    const mapped = {
+      id: tx.id,
+      name: tx.name,
+      amount: tx.amount,
+      type: tx.type,
+      date: tx.date.toISOString(),
+      category: tx.category.name,
+      user: tx.user.role,
+      note: tx.note,
+      categoryId: tx.category.id,
+      categoryIcon: tx.category.icon,
+      categoryType: tx.category.type,
+    };
+
+    return NextResponse.json({ transaction: mapped });
   } catch (error) {
     console.error("[POST /api/transactions]", error);
-    return NextResponse.json({ error: "Gagal menambah transaksi" }, { status: 500 });
+    return NextResponse.json({ error: "Gagal membuat transaksi" }, { status: 500 });
   } finally {
     await prisma.$disconnect();
   }
@@ -171,55 +195,83 @@ export async function POST(request: Request) {
 
 export async function PUT(request: Request) {
   try {
+    const { searchParams } = new URL(request.url);
+    const id = searchParams.get("id");
+    if (!id) return NextResponse.json({ error: "ID diperlukan" }, { status: 400 });
+
     const body = await request.json();
     const parsed = updateTransactionSchema.safeParse(body);
     if (!parsed.success) {
       const firstError = parsed.error.issues[0];
       return NextResponse.json({ error: firstError.message }, { status: 400 });
     }
-    const { id, name, amount, type, date, category, user, note } = parsed.data;
+    const { name, amount, type, date, category, user: userRole, note } = parsed.data;
+    const user = userRole!; // Zod schema guarantees this exists
 
-    if (!id) {
-      return NextResponse.json({ error: "ID transaksi tidak ditemukan" }, { status: 400 });
+    let dbUser = await prisma.user.findFirst({ where: { role: user } });
+    if (!dbUser) {
+      const household = await prisma.household.findFirst({ where: { name: "Keluarga" } });
+      if (!household) {
+        return NextResponse.json({ error: "Household tidak ditemukan" }, { status: 400 });
+      }
+      dbUser = await prisma.user.create({
+        data: { id: `user-${user.toLowerCase()}`, role: user, name: user, householdId: household.id },
+      });
     }
 
-    const existing = await prisma.transaction.findUnique({ where: { id } });
-    if (!existing) {
+    let dbCat = await prisma.category.findUnique({ where: { name: category! } });
+    if (!dbCat) {
+      dbCat = await prisma.category.create({
+        data: {
+          name: category!,
+          icon: "MoreHorizontal",
+          type: type === "pengeluaran" ? "expense" : "income",
+        },
+      });
+    }
+
+    let tx = await prisma.transaction.findUnique({ where: { id } });
+    if (!tx) {
       return NextResponse.json({ error: "Transaksi tidak ditemukan" }, { status: 404 });
     }
 
-    const updateData: Record<string, unknown> = {};
-    if (name) updateData.name = name;
-    if (amount != null) updateData.amount = Number(amount);
-    if (type) updateData.type = type;
-    if (date) updateData.date = new Date(date);
-    if (note !== undefined) updateData.note = note ?? null;
-
-    if (category) {
-      let dbCat = await prisma.category.findUnique({ where: { name: category } });
-      if (!dbCat) {
-        dbCat = await prisma.category.create({
-          data: { name: category, icon: "Circle", type: type || "pengeluaran" },
-        });
-      }
-      updateData.categoryId = dbCat.id;
-    }
-
-    if (user) {
-      const dbUser = await prisma.user.findFirst({ where: { role: user } });
-      if (dbUser) updateData.userId = dbUser.id;
-    }
-
-    const transaction = await prisma.transaction.update({
+    tx = await prisma.transaction.update({
       where: { id },
-      data: updateData,
-      include: { category: true },
+      data: {
+        name,
+        amount: amount !== undefined ? (type === "pengeluaran" ? -Math.abs(amount) : Math.abs(amount)) : undefined,
+        type,
+        date: date ? new Date(date) : undefined,  // only set date if provided
+        categoryId: dbCat.id,
+        userId: dbUser.id,
+        note,
+      },
+      include: { category: true, user: true },
     });
 
-    return NextResponse.json({ transaction });
+    // Fetch category and user separately for mapping
+    const categoryData = await prisma.category.findUnique({ where: { id: dbCat.id } });
+    const userData = await prisma.user.findUnique({ where: { id: dbUser.id } });
+
+    // Use the included data for mapping (no need to fetch separately)
+    const mapped = {
+      id: tx.id,
+      name: tx.name,
+      amount: tx.amount,
+      type: tx.type,
+      date: tx.date.toISOString(),
+      category: categoryData?.name || "",
+      user: userData?.role || "",
+      note: tx.note,
+      categoryId: categoryData?.id || "",
+      categoryIcon: categoryData?.icon || "",
+      categoryType: categoryData?.type || "",
+    };
+
+    return NextResponse.json({ transaction: mapped });
   } catch (error) {
     console.error("[PUT /api/transactions]", error);
-    return NextResponse.json({ error: "Gagal mengupdate transaksi" }, { status: 500 });
+    return NextResponse.json({ error: "Gagal memperbarui transaksi" }, { status: 500 });
   } finally {
     await prisma.$disconnect();
   }
@@ -229,13 +281,9 @@ export async function DELETE(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
     const id = searchParams.get("id");
+    if (!id) return NextResponse.json({ error: "ID diperlukan" }, { status: 400 });
 
-    if (!id) {
-      return NextResponse.json({ error: "ID transaksi tidak ditemukan" }, { status: 400 });
-    }
-    
-    console.log("[DELETE] id:", id);
-
+    // Check if transaction exists before deleting
     const existing = await prisma.transaction.findUnique({ where: { id } });
     if (!existing) {
       return NextResponse.json({ error: "Transaksi tidak ditemukan" }, { status: 404 });
@@ -245,7 +293,7 @@ export async function DELETE(request: Request) {
     return NextResponse.json({ success: true });
   } catch (error) {
     console.error("[DELETE /api/transactions]", error);
-    return NextResponse.json({ error: `Gagal menghapus transaksi: ${error instanceof Error ? error.message : "Unknown error"}` }, { status: 500 });
+    return NextResponse.json({ error: "Gagal menghapus transaksi" }, { status: 500 });
   } finally {
     await prisma.$disconnect();
   }

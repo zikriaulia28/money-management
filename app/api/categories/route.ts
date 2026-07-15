@@ -22,9 +22,7 @@ export async function GET() {
 export async function POST(request: Request) {
   try {
     const body = await request.json().catch(() => ({}));
-    const name = (body as any)?.name;
-    const icon = (body as any)?.icon;
-    const type = (body as any)?.type;
+    const { name, icon, type } = body;
 
     if (!name || !icon || !type) {
       return NextResponse.json({ error: "Data kategori tidak lengkap" }, { status: 400 });

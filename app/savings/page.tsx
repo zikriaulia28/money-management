@@ -263,7 +263,13 @@ export default function SavingsPage() {
         {loading ? (
           <p className="text-sm text-muted-foreground col-span-full text-center py-8">Memuat data...</p>
         ) : goals.length === 0 ? (
-          <p className="text-sm text-muted-foreground col-span-full text-center py-8">Belum ada target tabungan. Klik &quot;Target Baru&quot; untuk memulai.</p>
+          <div className="text-center py-16 col-span-full">
+            <div className="text-4xl mb-3">🎯</div>
+            <p className="text-sm font-medium text-foreground">Belum ada target tabungan</p>
+            <p className="text-xs text-muted-foreground mt-1">
+              Klik &quot;Target Baru&quot; untuk memulai.
+            </p>
+          </div>
         ) : (
           goals.map((goal, idx) => {
             const style = stylePalette[idx];
@@ -394,7 +400,13 @@ export default function SavingsPage() {
             {historyLoading ? (
               <p className="text-sm text-center text-muted-foreground py-6">Memuat...</p>
             ) : historyData.length === 0 ? (
-              <p className="text-sm text-center text-muted-foreground py-6">Belum ada setoran</p>
+              <div className="text-center py-16">
+                <div className="text-4xl mb-3">📝</div>
+                <p className="text-sm font-medium text-foreground">Belum ada setoran</p>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Mulai setor ke target ini
+                </p>
+              </div>
             ) : (
               <div className="space-y-2">
                 {historyData.map((d, i) => (

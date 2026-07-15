@@ -1,109 +1,84 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { TrendingUp, TrendingDown, Wallet, ArrowUpRight, ArrowDownRight } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
-import { useStore, formatRupiah } from "@/lib/store";
+import { formatRupiah } from "@/lib/store";
 import { cachedFetch } from "@/lib/fetch-cache";
 
-type ApiTransaction = {
-  id: string;
-  name: string;
-  category: string;
-  date: string;
-  amount: number;
-  user: "Suami" | "Istri";
-};
-
-type Summary = {
-  totalIncome: number;
-  totalExpense: number;
+type DashboardData = {
   balance: number;
+  monthlyIncome: number;
+  monthlyExpense: number;
 };
 
 export function SummaryCards() {
-  const activeUser = useStore((s) => s.activeUser);
-
-  const [transactions, setTransactions] = useState<ApiTransaction[]>([]);
+  const [data, setData] = useState<DashboardData>({ balance: 0, monthlyIncome: 0, monthlyExpense: 0 });
   const [loading, setLoading] = useState(false);
 
-  async function fetchTransactions() {
+  const fetchData = useCallback(async () => {
     setLoading(true);
     try {
-      const data = await cachedFetch<{ transactions: ApiTransaction[] }>(
-        `/api/transactions?user=${encodeURIComponent(activeUser)}`
-      );
-      if (!data) return;
-      setTransactions(data.transactions ?? []);
+      const res = await cachedFetch<DashboardData>("/api/dashboard");
+      if (!res) return;
+      setData({
+        balance: res.balance,
+        monthlyIncome: res.monthlyIncome,
+        monthlyExpense: res.monthlyExpense,
+      });
     } catch {
       // keep previous state
     } finally {
       setLoading(false);
     }
-  }
+  }, []);
 
   useEffect(() => {
-    fetchTransactions();
-  }, [activeUser]);
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    fetchData();
+  }, [fetchData]);
 
-  const summary = useMemo<Summary>(() => {
-    const totalIncome = transactions
-      .filter((t) => t.amount > 0)
-      .reduce((sum, t) => sum + t.amount, 0);
-    const totalExpense = transactions
-      .filter((t) => t.amount < 0)
-      .reduce((sum, t) => sum + Math.abs(t.amount), 0);
-    const balance = totalIncome - totalExpense;
-    return { totalIncome, totalExpense, balance };
-  }, [transactions]);
-
-  // Dynamic income target: average monthly income over available data
   const incomeTarget = useMemo(() => {
-    if (transactions.length === 0) return 170_000_000;
+    // Target: minimal 1jt, atau pengeluaran bulan ini sebagai baseline
+    return Math.max(data.monthlyIncome, data.monthlyExpense, 1_000_000);
+  }, [data.monthlyIncome, data.monthlyExpense]);
 
-    const monthlyMap = new Map<string, number>();
-    for (const tx of transactions) {
-      if (tx.amount > 0) {
-        const monthKey = tx.date.slice(0, 7); // "2026-07"
-        monthlyMap.set(monthKey, (monthlyMap.get(monthKey) || 0) + tx.amount);
-      }
-    }
-
-    if (monthlyMap.size === 0) return 170_000_000;
-    const avg = Math.round(
-      [...monthlyMap.values()].reduce((s, v) => s + v, 0) / monthlyMap.size
-    );
-    // Round to nearest million
-    return Math.max(avg, 1_000_000);
-  }, [transactions]);
-
-  const incomePercent = Math.min(Math.round((summary.totalIncome / incomeTarget) * 100), 100);
+  const incomePercent = incomeTarget > 0 ? Math.min(Math.round((data.monthlyIncome / incomeTarget) * 100), 100) : 0;
 
   const cards = [
     {
       title: "Total Saldo",
-      amount: formatRupiah(summary.balance),
-      trend: { value: loading ? "..." : `${summary.totalIncome > 0 || summary.totalExpense > 0 ? "Aktif" : "0%"}`, direction: "up" as const, label: "Dari bulan ini" },
+      amount: formatRupiah(Math.abs(data.balance)),
+      trend: {
+        value: loading ? "..." : (
+          data.balance > 0 ? "Aktif" :
+          data.balance < 0 ? "Defisit" :
+          "0%"
+        ),
+        direction: data.balance < 0 ? "down" as const : "up" as const,
+        label: "Saldo keseluruhan"
+      },
       icon: <Wallet className="h-5 w-5 text-primary" />,
       iconBg: "bg-primary/10",
       decorativeCircle: true,
+      className: data.balance < 0 ? "border-red-200 bg-red-50/30" : "",
     },
     {
       title: "Pemasukan Bulanan",
-      amount: formatRupiah(summary.totalIncome),
+      amount: formatRupiah(data.monthlyIncome),
       icon: <TrendingUp className="h-5 w-5 text-secondary" />,
       iconBg: "bg-secondary/10",
-      progress: { current: summary.totalIncome, target: incomeTarget, percentage: incomePercent },
+      progress: { current: data.monthlyIncome, target: incomeTarget, percentage: incomePercent },
       trend: { value: `${incomePercent}%`, direction: "up" as const, label: "dari target tercapai" },
     },
     {
       title: "Pengeluaran Bulanan",
-      amount: formatRupiah(summary.totalExpense),
+      amount: formatRupiah(data.monthlyExpense),
       danger: true,
       icon: <TrendingDown className="h-5 w-5 text-destructive" />,
       iconBg: "bg-destructive/10",
-      trend: { value: loading ? "..." : `${summary.totalExpense > 0 ? "Ada transaksi" : "0%"}`, direction: "up" as const, label: summary.totalExpense > 0 ? "Perlu diawasi" : "Belum ada pengeluaran" },
+      trend: { value: loading ? "..." : `${data.monthlyExpense > 0 ? "Ada transaksi" : "0%"}`, direction: "up" as const, label: data.monthlyExpense > 0 ? "Perlu diawasi" : "Belum ada pengeluaran" },
     },
   ];
 
@@ -125,11 +100,12 @@ interface SummaryCardProps {
   progress?: { current: number; target: number; percentage: number };
   danger?: boolean;
   decorativeCircle?: boolean;
+  className?: string;
 }
 
-function SummaryCard({ title, amount, trend, icon, iconBg = "bg-primary/10", progress, danger, decorativeCircle }: SummaryCardProps) {
+function SummaryCard({ title, amount, trend, icon, iconBg = "bg-primary/10", progress, danger, decorativeCircle, className }: SummaryCardProps) {
   return (
-    <Card className={cn("relative overflow-hidden group hover:shadow-md transition-all duration-300", danger && "border-destructive/30")}>
+    <Card className={cn("relative overflow-hidden group hover:shadow-md transition-all duration-300", danger && "border-destructive/30", className)}>
       {decorativeCircle && (
         <div className="absolute -right-4 -top-4 w-24 h-24 bg-primary/5 rounded-full group-hover:scale-150 transition-transform duration-700 pointer-events-none" />
       )}

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -118,7 +118,7 @@ export default function BudgetsPage() {
   // ── Delete confirm ──
   const [deleteId, setDeleteId] = useState<string | null>(null);
 
-  async function fetchBudgets(bust = false) {
+  const fetchBudgets = useCallback(async (bust = false) => {
     setLoading(true);
     setError(null);
     try {
@@ -132,9 +132,10 @@ export default function BudgetsPage() {
     } finally {
       setLoading(false);
     }
-  }
+  }, [period]);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     fetchBudgets();
 
     const months: string[] = [];
@@ -143,7 +144,7 @@ export default function BudgetsPage() {
     }
     setBudgetMonths(months);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [period]);
+  }, [period, fetchBudgets]);
 
   // ── Manual add ──
   async function handleAddBudget() {
@@ -400,8 +401,12 @@ export default function BudgetsPage() {
       {loading ? (
         <div className="text-center py-12 text-sm text-muted-foreground">Memuat...</div>
       ) : budgets.length === 0 ? (
-        <div className="text-center py-12 text-sm text-muted-foreground">
-          Belum ada budget untuk bulan ini. Klik "Buat Otomatis" atau "Tambah" untuk mulai.
+        <div className="text-center py-16">
+          <div className="text-4xl mb-3">📊</div>
+          <p className="text-sm font-medium text-foreground">Belum ada anggaran</p>
+          <p className="text-xs text-muted-foreground mt-1">
+            Klik &quot;Buat Otomatis&quot; atau &quot;Tambah&quot; untuk mulai.
+          </p>
         </div>
       ) : (
         <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 xl:grid-cols-3">

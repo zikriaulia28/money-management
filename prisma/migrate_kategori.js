@@ -1,7 +1,7 @@
 // Migration script: restruktur kategori + cleansing transaksi
 // Run: node prisma/migrate_kategori.js
-require('dotenv').config();
-const { Pool } = require('pg');
+import 'dotenv/config';
+import { Pool } from 'pg';
 
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,

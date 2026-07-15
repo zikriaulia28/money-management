@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Button } from "@/components/ui/button";
@@ -28,31 +28,32 @@ export function BudgetProgress() {
     return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
   }
 
-  async function fetchData() {
-    setLoading(true);
-    try {
-      const period = getMonthPeriod();
-      const res = await cachedFetch<{ budgets: ApiBudget[] }>(
-        `/api/budgets?period=${encodeURIComponent(period)}`
-      );
-      setBudgets(res.budgets ?? []);
-    } catch {
-      // keep previous state
-    } finally {
-      setLoading(false);
-    }
-  }
+  const fetchData = useCallback(async () => {
+      setLoading(true);
+      try {
+        const period = getMonthPeriod();
+        const res = await cachedFetch<{ budgets: ApiBudget[] }>(
+          `/api/budgets?period=${encodeURIComponent(period)}`
+        );
+        setBudgets(res.budgets ?? []);
+      } catch {
+        // keep previous state
+      } finally {
+        setLoading(false);
+      }
+    }, []);
 
-  useEffect(() => {
-    fetchData();
-  }, []);
+    useEffect(() => {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      fetchData();
+    }, [fetchData]);
 
-  // Auto-refresh ketika page mendapat fokus
-  useEffect(() => {
-    const onFocus = () => fetchData();
-    window.addEventListener("focus", onFocus);
-    return () => window.removeEventListener("focus", onFocus);
-  }, []);
+    // Auto-refresh ketika page mendapat fokus
+    useEffect(() => {
+      const onFocus = () => fetchData();
+      window.addEventListener("focus", onFocus);
+      return () => window.removeEventListener("focus", onFocus);
+    }, [fetchData]);
 
   const topBudgets = useMemo(() => {
     return budgets.slice(0, 3);

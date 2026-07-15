@@ -5,16 +5,13 @@ import { Bell, HelpCircle, Moon, Sun } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useStore } from "@/lib/store";
 import { AppLogo } from "@/components/ui/app-logo";
-import { cn } from "@/lib/utils";
 
 export function Header() {
   const activeUser = useStore((s) => s.activeUser);
   const setActiveUser = useStore((s) => s.setActiveUser);
   const [dark, setDark] = useState(false);
 
-  // Init from localStorage or system preference
-  useEffect(() => {
-    const stored = localStorage.getItem("theme");
+  const applyTheme = (stored: string | null) => {
     if (stored === "dark" || (!stored && window.matchMedia("(prefers-color-scheme: dark)").matches)) {
       document.documentElement.classList.add("dark");
       setDark(true);
@@ -22,17 +19,24 @@ export function Header() {
       document.documentElement.classList.remove("dark");
       setDark(false);
     }
+  };
+
+  useEffect(() => {
+    const stored = localStorage.getItem("theme");
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    applyTheme(stored);
   }, []);
 
   function toggleTheme() {
     const next = !dark;
     setDark(next);
+    const stored = next ? "dark" : "light";
+    localStorage.setItem("theme", stored);
+    applyTheme(stored);
     if (next) {
       document.documentElement.classList.add("dark");
-      localStorage.setItem("theme", "dark");
     } else {
       document.documentElement.classList.remove("dark");
-      localStorage.setItem("theme", "light");
     }
   }
 

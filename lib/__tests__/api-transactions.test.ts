@@ -7,7 +7,7 @@ import type { Mock } from "vitest";
 const { mockPrisma } = vi.hoisted(() => {
   const prisma = {
     household: { findFirst: vi.fn(), create: vi.fn() },
-    user: { findFirst: vi.fn(), create: vi.fn() },
+    user: { findFirst: vi.fn(), findUnique: vi.fn(), create: vi.fn() },
     category: { findFirst: vi.fn(), findUnique: vi.fn(), findMany: vi.fn(), create: vi.fn() },
     transaction: { findMany: vi.fn(), findUnique: vi.fn(), create: vi.fn(), update: vi.fn(), delete: vi.fn(), count: vi.fn() },
     budget: { findMany: vi.fn(), upsert: vi.fn(), delete: vi.fn() },
@@ -148,6 +148,7 @@ describe("POST /api/transactions", () => {
       date: new Date("2026-07-13"),
       categoryId: "cat-anak",
       category: { name: "Anak", icon: "Baby", type: "pengeluaran" },
+      user: { id: "user-suami", role: "Suami", name: "Suami" },
     });
 
     const res = await POST(
@@ -164,7 +165,7 @@ describe("POST /api/transactions", () => {
       })
     );
 
-    expect(res.status).toBe(201);
+    expect(res.status).toBe(200);
     const body = await res.json();
     expect(body.transaction.name).toBe("Beli Popok");
   });
@@ -182,16 +183,11 @@ describe("POST /api/transactions", () => {
     expect(body.error).toContain("Invalid input");
   });
 
-  it("auto-creates household if not exists", async () => {
-    (mockPrisma.household.findFirst as Mock).mockResolvedValue(null);
-    (mockPrisma.household.create as Mock).mockResolvedValue({ id: "hh-new", name: "Keluarga" });
+  it("returns 400 when user not found and household missing", async () => {
     (mockPrisma.user.findFirst as Mock).mockResolvedValue(null);
-    (mockPrisma.user.create as Mock).mockResolvedValue({ id: "user-suami", role: "Suami" });
-    (mockPrisma.category.findUnique as Mock).mockResolvedValue(null);
-    (mockPrisma.category.create as Mock).mockResolvedValue({ id: "cat-bar", name: "Anak" });
-    (mockPrisma.transaction.create as Mock).mockResolvedValue({ id: "tx-1", name: "Test" });
+    (mockPrisma.household.findFirst as Mock).mockResolvedValue(null);
 
-    await POST(
+    const res = await POST(
       createRequest("http://localhost:3000/api/transactions", {
         method: "POST",
         body: JSON.stringify({
@@ -205,9 +201,7 @@ describe("POST /api/transactions", () => {
       })
     );
 
-    expect(mockPrisma.household.create).toHaveBeenCalled();
-    expect(mockPrisma.user.create).toHaveBeenCalled();
-    expect(mockPrisma.category.create).toHaveBeenCalled();
+    expect(res.status).toBe(400);
   });
 
   it("returns 500 on error", async () => {
@@ -239,14 +233,18 @@ describe("PUT /api/transactions", () => {
     (mockPrisma.transaction.update as Mock).mockResolvedValue({
       id: "tx-1",
       name: "Beli Susu",
-      amount: 60000,
-      category: { name: "Anak" },
+      amount: -60000,
+      type: "pengeluaran",
+      date: new Date("2026-07-13"),
+      note: null,
     });
+    (mockPrisma.category.findUnique as Mock).mockResolvedValue({ id: "cat-anak", name: "Anak", icon: "Baby", type: "pengeluaran" });
+    (mockPrisma.user.findUnique as Mock).mockResolvedValue({ id: "user-suami", role: "Suami" });
 
     const res = await PUT(
-      createRequest("http://localhost:3000/api/transactions", {
+      createRequest("http://localhost:3000/api/transactions?id=tx-1", {
         method: "PUT",
-        body: JSON.stringify({ id: "tx-1", name: "Beli Susu", amount: 60000 }),
+        body: JSON.stringify({ id: "tx-1", name: "Beli Susu", amount: 60000, type: "pengeluaran", category: "Anak", user: "Suami" }),
       })
     );
 
@@ -268,11 +266,13 @@ describe("PUT /api/transactions", () => {
 
   it("returns 404 for non-existent transaction", async () => {
     (mockPrisma.transaction.findUnique as Mock).mockResolvedValue(null);
+    (mockPrisma.category.findUnique as Mock).mockResolvedValue({ id: "cat-anak", name: "Anak" });
+    (mockPrisma.user.findUnique as Mock).mockResolvedValue({ id: "user-suami", role: "Suami" });
 
     const res = await PUT(
-      createRequest("http://localhost:3000/api/transactions", {
+      createRequest("http://localhost:3000/api/transactions?id=nonexistent", {
         method: "PUT",
-        body: JSON.stringify({ id: "nonexistent", name: "Test" }),
+        body: JSON.stringify({ id: "nonexistent", name: "Test", type: "pengeluaran", category: "Anak", user: "Suami" }),
       })
     );
 

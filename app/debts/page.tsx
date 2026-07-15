@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -78,7 +78,7 @@ export default function DebtsPage() {
 
   const userId = useMemo(() => `user-${activeUser.toLowerCase()}`, [activeUser]);
 
-  async function fetchDebts() {
+  const fetchDebts = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
@@ -89,11 +89,12 @@ export default function DebtsPage() {
     } finally {
       setLoading(false);
     }
-  }
+  }, []);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     fetchDebts();
-  }, []);
+  }, [fetchDebts]);
 
   const totals = useMemo(() => {
     return debts.reduce(
@@ -272,7 +273,13 @@ export default function DebtsPage() {
         {loading ? (
           <p className="text-sm text-muted-foreground text-center py-8">Memuat data cicilan...</p>
         ) : debts.length === 0 ? (
-          <p className="text-sm text-muted-foreground text-center py-8">Belum ada cicilan. Klik &quot;Cicilan Baru&quot; untuk memulai.</p>
+          <div className="text-center py-16">
+            <div className="text-4xl mb-3">💳</div>
+            <p className="text-sm font-medium text-foreground">Belum ada cicilan</p>
+            <p className="text-xs text-muted-foreground mt-1">
+              Klik &quot;Cicilan Baru&quot; untuk memulai.
+            </p>
+          </div>
         ) : (
           debts.map((debt) => {
             const style = getDebtStyle(debt.category);

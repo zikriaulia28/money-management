@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { SummaryCards } from "@/components/dashboard/summary-cards";
 import { SpendingChart } from "@/components/dashboard/spending-chart";
 import { BudgetProgress } from "@/components/dashboard/budget-progress";
@@ -9,7 +9,7 @@ import { RecentTransactions } from "@/components/dashboard/recent-transactions";
 export default function DashboardPage() {
   const [dateStr, setDateStr] = useState("");
 
-  useEffect(() => {
+  const updateDateStr = useCallback(() => {
     setDateStr(
       new Date().toLocaleDateString("id-ID", {
         weekday: "long",
@@ -19,6 +19,11 @@ export default function DashboardPage() {
       })
     );
   }, []);
+
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    updateDateStr();
+  }, [updateDateStr]);
 
   return (
     <div className="space-y-6">

@@ -192,7 +192,7 @@ export default function TransactionsPage() {
       params.set("page", String(currentPage));
       params.set("pageSize", String(ITEMS_PER_PAGE));
       const data = await cachedFetch<ApiResponse>(
-        `/api/transactions?${params.toString()}`,
+        `/api/transactions?user=${encodeURIComponent(activeUser)}&${params.toString()}`,
         { bust },
       );
       setTransactions(data.transactions ?? []);

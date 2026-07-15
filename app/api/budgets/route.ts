@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { createBudgetSchema } from "@/lib/validations";
+import { Prisma } from "@prisma/client";
 
 export const runtime = "nodejs";
 
@@ -44,7 +45,7 @@ export async function GET(request: Request) {
       return NextResponse.json({ budgets: [] });
     }
 
-    const where: any = { householdId: household.id };
+  const where: Prisma.BudgetWhereInput = { householdId: household.id };
     if (periodQuery) {
       where.period = periodQuery;
     }

@@ -1,49 +1,47 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
 import { cachedFetch } from "@/lib/fetch-cache";
-import { useStore, formatRupiah, formatDateDisplay } from "@/lib/store";
+import { formatRupiah, formatDateDisplay } from "@/lib/store";
 import { CATEGORY_COLOR_MAP } from "@/lib/categories";
 
-type ApiTransaction = {
+type RecentTx = {
   id: string;
   name: string;
   category: string;
-  categoryId?: string;
   date: string;
   amount: number;
   user: "Suami" | "Istri";
 };
 
-const categoryColors = CATEGORY_COLOR_MAP;
+type DashboardData = {
+  recentTransactions: RecentTx[];
+};
 
 export function RecentTransactions() {
-  const [transactions, setTransactions] = useState<ApiTransaction[]>([]);
+  const [transactions, setTransactions] = useState<RecentTx[]>([]);
   const [loading, setLoading] = useState(false);
 
-  async function fetchTransactions() {
+  const fetchData = useCallback(async () => {
     setLoading(true);
     try {
-      const data = await cachedFetch<{ transactions: ApiTransaction[] }>("/api/transactions");
-      setTransactions(data.transactions ?? []);
+      const data = await cachedFetch<DashboardData>("/api/dashboard");
+      if (!data) return;
+      setTransactions(data.recentTransactions ?? []);
     } catch {
       // keep previous state
     } finally {
       setLoading(false);
     }
-  }
-
-  useEffect(() => {
-    fetchTransactions();
   }, []);
 
-  const recent = useMemo(() => {
-    const sorted = [...transactions].sort((a, b) => (a.date > b.date ? -1 : a.date < b.date ? 1 : 0));
-    return sorted.slice(0, 5);
-  }, [transactions]);
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    fetchData();
+  }, [fetchData]);
 
   if (loading) {
     return (
@@ -67,10 +65,10 @@ export function RecentTransactions() {
 
         {/* Mobile: card list */}
         <div className="divide-y divide-border md:hidden">
-          {recent.length === 0 ? (
+          {transactions.length === 0 ? (
             <p className="text-sm text-muted-foreground text-center py-8">Belum ada transaksi</p>
           ) : (
-            recent.map((tx) => {
+            transactions.map((tx) => {
               const isIncome = tx.amount >= 0;
               return (
                 <div key={tx.id} className="p-4 space-y-2">
@@ -90,7 +88,7 @@ export function RecentTransactions() {
                   </div>
                   <Badge
                     variant="secondary"
-                    className={`text-[10px] font-bold uppercase px-2 py-0.5 ${categoryColors[tx.category] || ""}`}
+                    className={`text-[10px] font-bold uppercase px-2 py-0.5 ${CATEGORY_COLOR_MAP[tx.category] || ""}`}
                   >
                     {tx.category}
                   </Badge>
@@ -112,12 +110,12 @@ export function RecentTransactions() {
               </tr>
             </thead>
             <tbody className="divide-y divide-border">
-              {recent.length === 0 ? (
+              {transactions.length === 0 ? (
                 <tr>
                   <td colSpan={4} className="text-center py-12 text-muted-foreground">Belum ada transaksi</td>
                 </tr>
               ) : (
-                recent.map((tx) => {
+                transactions.map((tx) => {
                   const isIncome = tx.amount >= 0;
                   return (
                     <tr key={tx.id} className="hover:bg-muted/30 transition-colors">
@@ -130,7 +128,7 @@ export function RecentTransactions() {
                         </div>
                       </td>
                       <td className="px-5 py-4">
-                        <Badge variant="secondary" className={`text-[10px] font-bold uppercase px-2 py-0.5 ${categoryColors[tx.category] || ""}`}>
+                        <Badge variant="secondary" className={`text-[10px] font-bold uppercase px-2 py-0.5 ${CATEGORY_COLOR_MAP[tx.category] || ""}`}>
                           {tx.category}
                         </Badge>
                       </td>

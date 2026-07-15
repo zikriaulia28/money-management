@@ -14,10 +14,10 @@ import { cn } from "@/lib/utils";
 import { AppLogo } from "@/components/ui/app-logo";
 
 const navItems = [
-  { href: "/", label: "Dashboard", shortLabel: "Beranda", icon: LayoutDashboard },
-  { href: "/transactions", label: "Transaksi", shortLabel: "Trans", icon: Receipt },
-  { href: "/budgets", label: "Anggaran", shortLabel: "Budget", icon: Wallet },
-  { href: "/savings", label: "Tabungan", shortLabel: "Simpan", icon: PiggyBank },
+  { href: "/", label: "Dashboard", shortLabel: "Dashboard", icon: LayoutDashboard },
+  { href: "/transactions", label: "Transaksi", shortLabel: "Transaksi", icon: Receipt },
+  { href: "/budgets", label: "Anggaran", shortLabel: "Anggaran", icon: Wallet },
+  { href: "/savings", label: "Tabungan", shortLabel: "Tabungan", icon: PiggyBank },
   { href: "/debts", label: "Hutang", shortLabel: "Hutang", icon: CreditCard },
 ];
 
