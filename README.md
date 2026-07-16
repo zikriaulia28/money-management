@@ -1,246 +1,123 @@
-# Money Management - Project Summary
+# Money Management — Manajemen Keuangan Keluarga
 
-## Overview
-A family money management app built with Next.js, TypeScript, and Tailwind CSS. This project helps a family track expenses, manage budgets, and plan savings.
+A family money management app built for Indonesian households. Tracks expenses, budgets, savings goals, and debts — shared between Suami & Istri.
+
+Built with Next.js 16 App Router + TypeScript + Prisma + PostgreSQL + Zustand + Tailwind CSS + shadcn/ui + Recharts.
 
 ## Features
-- **Transaction Management**: Add, view, filter, and categorize transactions
-- **Budget Planning**: Set and track budgets by category
-- **Savings Goals**: Create and monitor savings targets
-- **Debt Management**: Track and pay down debts
-- **User Roles**: Separate tracking for husband and wife
-- **Dashboard Analytics**: Visual charts and summaries of spending patterns
-- **Responsive Design**: Works on mobile, tablet, and desktop
+
+- **Transaction Management** — add/edit/delete, filter by category/period/user, search, pagination
+- **Budget Planning** — per-category monthly limits, progress bars, over-budget alerts
+- **Savings Goals** — target tabungan with deposit tracking, auto-progress, completion
+- **Debt Management** — multi-item cicilan tracking with payment history, progress bars
+- **Dual User** — Suami & Istri mode, shared household data
+- **Dashboard** — balance cards, pie chart (by category), line chart (monthly trend), budget progress
+- **Responsive Design** — desktop table + mobile card layout
+- **Dark Mode** — light/dark toggle, persisted
 
 ## Categories
-A complete categorization system for transactions:
-- **Income**: Gaji (Salary), Bonus/THR, Lainnya (Other)
-- **Expenses**: 
-  - Kebutuhan Rumah (House Needs)
-  - Belanja Harian (Daily Shopping)
-  - Makan & Minum (Food & Dining)
-  - Transportasi (Transportation)
-  - Hiburan (Entertainment)
-  - Kesehatan (Health)
-  - Anak (Kids)
-  - Donasi (Donations)
-  - Lainnya (Other)
+
+**Income (3):** Gaji, Bonus/THR, Pendapatan Lainnya
+
+**Expense (12):** Wajib Rumah, Bahan Masakan, Jajan/Snack, Kendaraan, Anak, Fashion, Sosial, Kesehatan, Donasi, Hiburan, Investasi, Lainnya
+
+**Debt (9):** KPR, Kredit Mobil, Kartu Kredit, Pinjaman Pribadi, Pendidikan, Kredit Motor, Elektronik, Furniture/Renovasi, Asuransi
+
+## Tech Stack
+
+| Layer | Stack |
+|-------|-------|
+| Framework | Next.js 16 (App Router) |
+| Language | TypeScript |
+| Database | PostgreSQL (Aiven) |
+| ORM | Prisma 5.22 |
+| State | Zustand |
+| Styling | Tailwind CSS 4 |
+| UI | shadcn/ui (Radix primitives) |
+| Charts | Recharts |
+| Icons | Lucide React |
+| Validation | Zod |
+| Testing | Vitest + Playwright |
+| Dev | Turbopack |
 
 ## Project Structure
+
 ```
-Money Management/
-├─ app/
-│  ├─ api/            # Backend API routes
-│  ├─ components/    # UI components
-│  ├─ layout.tsx     # Main layout
-│  ├─ page.tsx       # Dashboard page
-│  ├─ transactions/  # Transaction management
-│  ├─ budgets/        # Budget management
-│  ├─ savings/        # Savings goals
-│  └─ debts/         # Debt management
-├─ components/       # Reusable UI components
-├─ lib/              # Helper functions & types
-├─ public/           # Static assets
-├─ prisma/           # Database schema
-├─ README.md         # Project documentation
-└─ package.json      # Dependencies and scripts
+src/
+├── app/
+│   ├── (dashboard)/page.tsx        # Dashboard
+│   ├── api/
+│   │   ├── transactions/route.ts    # CRUD transaksi
+│   │   ├── budgets/route.ts         # CRUD anggaran
+│   │   ├── goals/route.ts           # CRUD tabungan + deposit
+│   │   ├── debts/route.ts           # CRUD cicilan + payment
+│   │   ├── dashboard/route.ts       # Aggregated dashboard data
+│   │   ├── categories/route.ts     # Kategori
+│   │   └── reports/route.ts         # Laporan bulanan
+│   ├── transactions/page.tsx        # Desktop table + mobile card
+│   ├── budgets/page.tsx
+│   ├── savings/page.tsx
+│   ├── debts/page.tsx
+│   └── reports/page.tsx
+├── components/
+│   ├── ui/                          # shadcn primitives
+│   ├── dashboard/                   # Charts, summary cards
+│   └── layout/                      # Header, sidebar
+├── lib/
+│   ├── store.ts                     # Zustand store
+│   ├── categories.ts                # Centralized category definitions
+│   ├── utils.ts                     # Formatter Rupiah, helpers
+│   ├── db.ts                        # Prisma client singleton
+│   ├── validations.ts              # Zod schemas
+│   ├── fetch-cache.ts              # SWR-like client cache
+│   └── __tests__/                   # Vitest unit + integration
+├── prisma/
+│   └── schema.prisma                # DB schema
+└── public/
 ```
 
-## Technologies Used
-- **Next.js** with App Router
-- **TypeScript** for type safety
-- **Prisma** with PostgreSQL
-- **Zustand** for state management
-- **Tailwind CSS** for styling
-- **Shadcn/ui** for UI components
-- **Lucide React** for icons
+## Quick Start
 
-## Installation & Setup
-
-### Prerequisites
-- Node.js 18+
-- PostgreSQL database
-
-### Steps to Run
-
-1. **Clone Repository**
-\`\`\`bash
-git clone <repository-url>
+```bash
+git clone <repo-url>
 cd money-management
-\`\`\`
-
-2. **Install Dependencies**
-\`\`\`bash
 npm install
-\`\`\`
-
-3. **Set Up Environment**
-Copy \`.env.example\` to \`.env\`:
-\`\`\`bash
-cp .env.example .env
-\`\`\`
-Then edit \`.env\` with your database credentials.
-
-4. **Initialize Database**
-\`\`\`bash
-npx prisma generate
-npx prisma db push
-\`\`\`
-
-5. **Run Development Server**
-\`\`\`bash
-npm run dev
-\`\`\`
-
-6. **Access Application**
-Open your browser and navigate to:
-\`http://localhost:3000\`
-
-## Project Highlights
-
-### Dashboard
-The main dashboard provides:
-- **Summary Cards**: Quick overview of total balance, monthly income/expense
-- **Pie Chart**: Visual breakdown of expenses by category
-- **Line Chart**: Spending trends over time
-- **Budget Progress**: Active budget tracking
-- **Recent Transactions**: Latest transaction activity
-
-### Transaction Management
-- CRUD (Create, Read, Update, Delete) operations
-- Filtering by category, user, and time periods
-- Search functionality
-- Pagination for large datasets
-
-### Budget Planning
-- Set and track budgets per category
-- Automatic spending calculation against budgets
-- Visual progress indicators
-- Over-budget alerts
-
-### Savings Goals
-- Create and manage savings targets
-- Track progress with visual indicators
-- Set deadlines and notifications
-
-### Debt Management
-- Track multiple debts
-- Monitor payments and balances
-- Set interest rates and payment schedules
-
-## UI/UX Features
-
-### Responsive Design
-The application provides seamless experience across all device types:
-- **Desktop**: Full feature set with expanded panel
-- **Tablet**: Optimized layout with adaptive components
-- **Mobile**: Touch-friendly interface with simplified navigation
-
-### Accessibility
-- Proper ARIA labels and semantic HTML
-- Basic keyboard navigation
-- Screen reader compatible output
-
-### Real-time Updates
-- Transaction list refreshes after add/edit/delete
-- Budget recalculation on transaction changes
-- Chart updates on data mutation
-
-## Development Workflow
-
-1. **Feature Development**
-   - Use the `workflow-dev` skill for collaboration
-   - Ensure thorough testing through TDD
-   - Follow established code review processes
-
-2. **Code Quality**
-   - TypeScript throughout for type safety
-   - Comprehensive error handling
-   - Clean, maintainable code structure
-
-3. **Testing**
-   - Unit tests for core business logic
-   - Integration tests for API endpoints
-   - Component tests for UI elements
-
-## Contributing
-
-Contributions are welcome! Please follow these guidelines:
-
-1. **Branch Strategy**
-   - Feature branches from `develop`
-   - Commit with clear, descriptive messages
-   - Pull requests for feature merges
-
-2. **Code Standards**
-   - Follow existing code conventions
-   - Maintain clean, readable code
-   - Use TypeScript effectively
-
-3. **Documentation**
-   - Update README files as needed
-   - Add comments for complex logic
-   - Document new features
-
-## Troubleshooting
-
-### Common Issues
-
-#### “Database connection failed"
-```
-Check your DATABASE_URL in .env file
-Ensure PostgreSQL service is running
-Verify database exists
+cp .env.example .env   # edit DATABASE_URL
+npm run build
+npm run dev            # → http://localhost:3000
 ```
 
-#### “Cannot read properties of undefined (reading 'connect')"
+## Scripts
+
+| Command | Description |
+|---------|-------------|
+| `npm run dev` | Start dev server (Turbopack) |
+| `npm run build` | Build for production |
+| `npm run start` | Start production server |
+| `npm test` | Run unit + integration tests |
+| `npm run test:e2e` | Run Playwright E2E tests |
+| `npm run lint` | ESLint |
+
+## Environment
+
 ```
-1. Run `pnpm install` to ensure all dependencies are installed
-2. Check environment variables
-3. Verify Prisma schema is up to date
+DATABASE_URL=postgresql://user:pass@host:port/db
+NEXT_PUBLIC_SITE_URL=http://localhost:3000
+NEXT_TELEMETRY_DISABLED=1
 ```
 
-#### "Port 3000 is already in use"
-```
-bash
-pnpm dev --port 3001
-```
+## Known Issues
 
-### Getting Help
+- **EPERM on HDD:** `prisma generate` gagal di drive E: (HDD). Workaround: `rm -rf node_modules/.prisma/client && npx prisma generate`
+- **Old data:** Transaksi saving/debt sebelum Juli 2026 tidak punya `sourceType`/`sourceId` — delete tidak reverse progress. Backfill planned.
 
-For additional support or questions:
-1. **Project Documentation**: Check the README and inline documentation
-2. **Issue Tracking**: Use GitHub Issues for bug reports and feature requests
-3. **Code Reviews**: Participate in peer reviews for code quality
+## Design
 
-## Future Enhancements
-
-### Planned Features
-
-1. **Advanced Analytics**
-   - Spending patterns analysis
-   - Comparative month-over-month analysis
-   - Budget optimization recommendations
-
-2. **Mobile App**
-   - PWA (Progressive Web App) capabilities
-   - Offline functionality
-   - Push notifications for budget alerts
-
-3. **Integration**
-   - Bank account integration
-   - Investment tracking
-   - Tax preparation tools
-
-4. **Collaboration**
-   - Multi-user support with granular permissions
-   - Family member sharing capabilities
-   - Shared budget planning
+- **Font:** Inter (body) + Outfit (heading, class `font-heading`)
+- **Palette:** Deep Teal primary `oklch(0.48 0.17 170)`, warm orange `chart-2`, green `chart-3`, indigo `chart-4`, teal `chart-5`
+- **Layout:** Dual — desktop Table, mobile Card
+- **Dashboard:** Single `/api/dashboard` endpoint (server-side aggregation)
 
 ## License
 
-This project is licensed under the MIT License.
-
----
-
-*Note: This project was developed in collaboration with the Hermes Agent (by Nous Research) and follows established best practices for modern web development.*
+MIT
