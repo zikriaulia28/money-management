@@ -13,6 +13,7 @@ import {
   PieChart,
   Pie,
   Cell,
+  Sector,
   ComposedChart,
   Bar,
   Line,
@@ -45,6 +46,19 @@ function formatCompact(n: number): string {
   if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}jt`;
   if (n >= 1_000) return `${(n / 1_000).toFixed(0)}rb`;
   return `${n}`;
+}
+
+// ponytail: Pie hover → slice membesar (user-friendly feedback, no click needed)
+function renderActiveShape(props: any) {
+  const { cx, cy, innerRadius, outerRadius, startAngle, endAngle, fill } = props;
+  return (
+    <g>
+      <Sector
+        cx={cx} cy={cy} innerRadius={innerRadius} outerRadius={outerRadius + 6}
+        startAngle={startAngle} endAngle={endAngle} fill={fill}
+      />
+    </g>
+  );
 }
 
 function CustomTooltip({ active, payload, label }: { active?: boolean; payload?: Array<{ value: number }>; label?: string }) {
@@ -91,7 +105,7 @@ export function SpendingChart() {
       <CardContent>
         {tab === "pie" ? (
           <div className="flex flex-col sm:flex-row items-center gap-4 sm:gap-8">
-            <div className="h-[220px] w-[220px] shrink-0">
+            <div className="h-[220px] w-[220px] shrink-0 outline-none select-none [&_svg]:outline-none [&_svg_*]:outline-none">
               {isLoading ? (
                 <p className="text-sm text-muted-foreground text-center pt-20">Memuat...</p>
               ) : data?.spendingByCategory.length === 0 ? (
@@ -107,6 +121,7 @@ export function SpendingChart() {
                       outerRadius={90}
                       paddingAngle={2}
                       dataKey="value"
+                      activeShape={renderActiveShape}
                     >
                       {d.spendingByCategory.map((_, i) => (
                         <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />
@@ -157,7 +172,7 @@ export function SpendingChart() {
                 Total: {formatRupiah(totalExpense)} &middot; Rata-rata: {formatRupiah(avgDaily)}/hari
               </span>
             </div>
-            <div className="h-[200px] w-full">
+            <div className="h-[200px] w-full outline-none select-none [&_svg]:outline-none [&_svg_*]:outline-none">
               {isLoading ? (
                 <p className="text-sm text-muted-foreground text-center pt-16">Memuat...</p>
               ) : d.dailyTrend.every((dd) => dd.amount === 0) ? (

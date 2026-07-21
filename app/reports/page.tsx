@@ -29,6 +29,7 @@ import {
   PieChart,
   Pie,
   Cell,
+  Sector,
 } from "recharts";
 import { TrendingUp, TrendingDown, Minus, FileText, ChevronLeft, ChevronRight } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
@@ -102,6 +103,19 @@ function CustomTooltip({ active, payload, label }: { active?: boolean; payload?:
       <p className="text-muted-foreground text-xs mb-1">Tanggal {label}</p>
       <p className="font-semibold tabular-nums">{formatRupiah(payload[0].value)}</p>
     </div>
+  );
+}
+
+// ponytail: Pie hover → slice membesar (user-friendly feedback, no click needed)
+function renderActiveShape(props: any) {
+  const { cx, cy, innerRadius, outerRadius, startAngle, endAngle, fill } = props;
+  return (
+    <g>
+      <Sector
+        cx={cx} cy={cy} innerRadius={innerRadius} outerRadius={outerRadius + 6}
+        startAngle={startAngle} endAngle={endAngle} fill={fill}
+      />
+    </g>
   );
 }
 
@@ -207,7 +221,7 @@ export default function ReportsPage() {
                 <CardTitle className="text-base font-semibold">Tren Pengeluaran Harian</CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="h-[240px]">
+                <div className="h-[240px] outline-none select-none [&_svg]:outline-none [&_svg_*]:outline-none">
                   <ResponsiveContainer width="100%" height="100%">
                     <BarChart data={data.dailyTrend} margin={{ top: 5, right: 5, left: 0, bottom: 5 }}>
                       <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} opacity={0.5} />
@@ -252,7 +266,7 @@ export default function ReportsPage() {
                 <CardTitle className="text-base font-semibold">Per Kategori</CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="h-[200px]">
+                <div className="h-[200px] outline-none select-none [&_svg]:outline-none [&_svg_*]:outline-none">
                   <ResponsiveContainer width="100%" height="100%">
                     <PieChart>
                       <Pie
@@ -263,6 +277,7 @@ export default function ReportsPage() {
                         outerRadius={75}
                         paddingAngle={3}
                         dataKey="spent"
+                        activeShape={renderActiveShape}
                       >
                         {data.spendingByCategory.map((_, i) => (
                           <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />
