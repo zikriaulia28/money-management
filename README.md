@@ -33,10 +33,11 @@ Built with Next.js 16 App Router + TypeScript + Prisma + PostgreSQL + Zustand + 
 | ORM | Prisma 5.22 |
 | State | Zustand |
 | Styling | Tailwind CSS 4 |
-| UI | shadcn/ui (Radix primitives) |
-| Charts | Recharts |
-| Icons | Lucide React |
-| Validation | Zod |
+|| UI | shadcn/ui (Radix primitives) |
+|| Charts | Recharts |
+|| Icons | Lucide React |
+|| Data | SWR (client cache, replaces fetch-cache) |
+|| Validation | Zod |
 | Testing | Vitest + Playwright |
 | Dev | Turbopack |
 
@@ -69,6 +70,7 @@ src/
 │   ├── utils.ts                     # Formatter Rupiah, helpers
 │   ├── db.ts                        # Prisma client singleton
 │   ├── validations.ts              # Zod schemas
+│   ├── api.ts                       # SWR fetcher + mutate (client cache)
 │   └── __tests__/                   # Vitest unit + integration
 ├── prisma/
 │   └── schema.prisma                # DB schema
