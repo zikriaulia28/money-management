@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -22,7 +22,7 @@ import {
 import { CATEGORIES, CATEGORY_ICON_MAP, ICON_BG_MAP, ICON_COLOR_MAP } from "@/lib/categories";
 import { useStore, formatRupiah, formatDateDisplay } from "@/lib/store";
 import { parseRupiah } from "@/lib/utils";
-import { cachedFetch, clearCache } from "@/lib/fetch-cache";
+import { useSWR, mutate } from "@/lib/api";
 
 // Build DEBT_CATEGORIES on‐the‐fly from CATEGORIES (debt scope only)
 const DEBT_CATEGORIES = CATEGORIES.filter((c) => c.scope === "debt").map((c) => ({
@@ -60,8 +60,6 @@ type ApiDebt = {
 export default function DebtsPage() {
   const activeUser = useStore((s) => s.activeUser);
 
-  const [debts, setDebts] = useState<ApiDebt[]>([]);
-  const [loading, setLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -78,30 +76,9 @@ export default function DebtsPage() {
 
   const userId = useMemo(() => `user-${activeUser.toLowerCase()}`, [activeUser]);
 
-  const fetchDebts = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const data = await cachedFetch<{ debts: ApiDebt[] }>('/api/debts');
-      setDebts(data.debts ?? []);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Terjadi kesalahan");
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    fetchDebts();
-  }, [fetchDebts]);
-
-  // Auto-refresh: ketika user balik ke tab ini
-  useEffect(() => {
-    const onFocus = () => { clearCache(); fetchDebts(); };
-    window.addEventListener("focus", onFocus);
-    return () => window.removeEventListener("focus", onFocus);
-  }, [fetchDebts]);
+  const { data, isLoading } = useSWR<{ debts: ApiDebt[] }>("/api/debts");
+  const debts = data?.debts ?? [];
+  const loading = isLoading;
 
   const totals = useMemo(() => {
     return debts.reduce(
@@ -151,7 +128,7 @@ export default function DebtsPage() {
       setNewTotal("");
       setNewMonthly("");
       setNewDueDate("");
-      fetchDebts();
+      mutate("/api/debts");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Terjadi kesalahan");
     } finally {
@@ -178,8 +155,7 @@ export default function DebtsPage() {
         throw new Error(text || `Gagal bayar cicilan: ${res.status}`);
       }
 
-      clearCache();
-      fetchDebts();
+      mutate("/api/debts");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Terjadi kesalahan");
     } finally {
@@ -205,8 +181,7 @@ export default function DebtsPage() {
         throw new Error(text || `Gagal memperbarui status: ${res.status}`);
       }
 
-      clearCache();
-      fetchDebts();
+      mutate("/api/debts");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Terjadi kesalahan");
     } finally {
@@ -233,8 +208,7 @@ export default function DebtsPage() {
         throw new Error(text || `Gagal menghapus cicilan: ${res.status}`);
       }
 
-      clearCache();
-      fetchDebts();
+      mutate("/api/debts");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Terjadi kesalahan");
     } finally {
@@ -258,7 +232,7 @@ export default function DebtsPage() {
       {error ? (
         <div className="p-4 text-sm text-red-600 dark:text-red-400">
           {error}
-          <button type="button" className="ml-3 underline" onClick={fetchDebts}>
+          <button type="button" className="ml-3 underline" onClick={() => mutate("/api/debts")}>
             Coba lagi
           </button>
         </div>

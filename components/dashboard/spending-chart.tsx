@@ -1,8 +1,8 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { cachedFetch } from "@/lib/fetch-cache";
+import { useSWR } from "@/lib/api";
 import { formatRupiah } from "@/lib/store";
 import {
   XAxis,
@@ -60,32 +60,11 @@ function CustomTooltip({ active, payload, label }: { active?: boolean; payload?:
 }
 
 export function SpendingChart() {
-  const [data, setData] = useState<DashboardData>({ spendingByCategory: [], dailyTrend: [] });
-  const [loading, setLoading] = useState(false);
+  const { data, isLoading } = useSWR<DashboardData>("/api/dashboard");
   const [tab, setTab] = useState<"pie" | "line">("pie");
 
-  const fetchData = useCallback(async () => {
-    setLoading(true);
-    try {
-      const res = await cachedFetch<DashboardData>("/api/dashboard");
-      if (!res) return;
-      setData({
-        spendingByCategory: res.spendingByCategory ?? [],
-        dailyTrend: res.dailyTrend ?? [],
-      });
-    } catch {
-      // keep previous state
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    fetchData();
-  }, [fetchData]);
-
-  const totalExpense = data.spendingByCategory.reduce((s, e) => s + e.value, 0);
+  const d = data ?? { spendingByCategory: [], dailyTrend: [] };
+  const totalExpense = d.spendingByCategory.reduce((s, e) => s + e.value, 0);
   const avgDaily = totalExpense > 0 ? Math.round(totalExpense / 30) : 0;
 
   return (
@@ -113,15 +92,15 @@ export function SpendingChart() {
         {tab === "pie" ? (
           <div className="flex flex-col sm:flex-row items-center gap-4 sm:gap-8">
             <div className="h-[220px] w-[220px] shrink-0">
-              {loading ? (
+              {isLoading ? (
                 <p className="text-sm text-muted-foreground text-center pt-20">Memuat...</p>
-              ) : data.spendingByCategory.length === 0 ? (
+              ) : data?.spendingByCategory.length === 0 ? (
                 <p className="text-sm text-muted-foreground text-center pt-20">Belum ada data bulan ini</p>
               ) : (
                 <ResponsiveContainer width="100%" height="100%">
                   <PieChart>
                     <Pie
-                      data={data.spendingByCategory}
+                      data={data?.spendingByCategory ?? []}
                       cx="50%"
                       cy="50%"
                       innerRadius={55}
@@ -129,7 +108,7 @@ export function SpendingChart() {
                       paddingAngle={2}
                       dataKey="value"
                     >
-                      {data.spendingByCategory.map((_, i) => (
+                      {d.spendingByCategory.map((_, i) => (
                         <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />
                       ))}
                     </Pie>
@@ -142,9 +121,9 @@ export function SpendingChart() {
             </div>
 
             <div className="flex-1 w-full space-y-1.5 min-w-0">
-              {loading ? (
+              {isLoading ? (
                 <p className="text-sm text-muted-foreground">Memuat...</p>
-              ) : data.spendingByCategory.length === 0 ? (
+              ) : d.spendingByCategory.length === 0 ? (
                 <p className="text-sm text-muted-foreground text-center">-</p>
               ) : (
                 <>
@@ -152,7 +131,7 @@ export function SpendingChart() {
                     Total: {formatRupiah(totalExpense)}
                   </p>
                   <div className="max-h-[180px] overflow-y-auto space-y-1 pr-1">
-                    {data.spendingByCategory.map((entry, i) => (
+                    {d.spendingByCategory.map((entry, i) => (
                       <div key={entry.name} className="flex items-center justify-between text-sm">
                         <div className="flex items-center gap-2 min-w-0">
                           <span
@@ -179,13 +158,13 @@ export function SpendingChart() {
               </span>
             </div>
             <div className="h-[200px] w-full">
-              {loading ? (
+              {isLoading ? (
                 <p className="text-sm text-muted-foreground text-center pt-16">Memuat...</p>
-              ) : data.dailyTrend.every((d) => d.amount === 0) ? (
+              ) : d.dailyTrend.every((dd) => dd.amount === 0) ? (
                 <p className="text-sm text-muted-foreground text-center pt-16">Belum ada data 30 hari terakhir</p>
               ) : (
                 <ResponsiveContainer width="100%" height="100%">
-                  <ComposedChart data={data.dailyTrend} margin={{ top: 10, right: 10, left: 0, bottom: 5 }}>
+                  <ComposedChart data={d.dailyTrend} margin={{ top: 10, right: 10, left: 0, bottom: 5 }}>
                     <defs>
                       <linearGradient id="barGradient" x1="0" y1="0" x2="0" y2="1">
                         <stop offset="0%" stopColor="var(--primary)" stopOpacity={0.85} />
@@ -225,8 +204,8 @@ export function SpendingChart() {
                       filter="url(#barShadow)"
                       maxBarSize={20}
                     >
-                      {data.dailyTrend.map((entry, i) => {
-                        const isPeak = entry.amount === Math.max(...data.dailyTrend.map(d => d.amount)) && entry.amount > 0;
+                      {d.dailyTrend.map((entry, i) => {
+                        const isPeak = entry.amount === Math.max(...d.dailyTrend.map(dd => dd.amount)) && entry.amount > 0;
                         const isEmpty = entry.amount === 0;
                         return (
                           <Cell

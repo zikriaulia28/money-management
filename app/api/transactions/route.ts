@@ -195,11 +195,11 @@ export async function POST(request: Request) {
 
 export async function PUT(request: Request) {
   try {
+    const body = await request.json();
     const { searchParams } = new URL(request.url);
-    const id = searchParams.get("id");
+    const id = searchParams.get("id") || body.id;
     if (!id) return NextResponse.json({ error: "ID diperlukan" }, { status: 400 });
 
-    const body = await request.json();
     const parsed = updateTransactionSchema.safeParse(body);
     if (!parsed.success) {
       const firstError = parsed.error.issues[0];

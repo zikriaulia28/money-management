@@ -5,7 +5,7 @@ import { Bell, Moon, Sun, AlertTriangle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useStore, formatRupiah } from "@/lib/store";
 import { AppLogo } from "@/components/ui/app-logo";
-import { cachedFetch } from "@/lib/fetch-cache";
+import { useSWR } from "@/lib/api";
 
 type Budget = {
   id: string;
@@ -23,7 +23,6 @@ export function Header() {
   const activeUser = useStore((s) => s.activeUser);
   const setActiveUser = useStore((s) => s.setActiveUser);
   const [dark, setDark] = useState(false);
-  const [overBudgets, setOverBudgets] = useState<Budget[]>([]);
   const [showNotif, setShowNotif] = useState(false);
   const notifRef = useRef<HTMLDivElement>(null);
 
@@ -56,31 +55,10 @@ export function Header() {
     }
   }
 
-  const fetchOverBudgets = useCallback(async () => {
-    try {
-      const period = getMonthPeriod();
-      const data = await cachedFetch<{ budgets: Budget[] }>(
-        `/api/budgets?period=${period}`
-      );
-      if (!data) return;
-      const over = (data.budgets ?? []).filter((b) => b.spent > b.amount);
-      setOverBudgets(over);
-    } catch {
-      // ignore
-    }
-  }, []);
-
-  useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    fetchOverBudgets();
-  }, [fetchOverBudgets]);
-
-  // Refresh on focus
-  useEffect(() => {
-    const onFocus = () => fetchOverBudgets();
-    window.addEventListener("focus", onFocus);
-    return () => window.removeEventListener("focus", onFocus);
-  }, [fetchOverBudgets]);
+  const { data } = useSWR<{ budgets: Budget[] }>(
+    `/api/budgets?period=${getMonthPeriod()}`
+  );
+  const overBudgets = (data?.budgets ?? []).filter((b) => b.spent > b.amount);
 
   // Close dropdown on outside click
   useEffect(() => {

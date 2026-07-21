@@ -1,10 +1,9 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useSWR } from "@/lib/api";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
-import { cachedFetch } from "@/lib/fetch-cache";
 import { formatRupiah, formatDateDisplay } from "@/lib/store";
 import { CATEGORY_COLOR_MAP } from "@/lib/categories";
 
@@ -22,28 +21,10 @@ type DashboardData = {
 };
 
 export function RecentTransactions() {
-  const [transactions, setTransactions] = useState<RecentTx[]>([]);
-  const [loading, setLoading] = useState(false);
+  const { data, isLoading } = useSWR<DashboardData>("/api/dashboard");
+  const transactions = data?.recentTransactions ?? [];
 
-  const fetchData = useCallback(async () => {
-    setLoading(true);
-    try {
-      const data = await cachedFetch<DashboardData>("/api/dashboard");
-      if (!data) return;
-      setTransactions(data.recentTransactions ?? []);
-    } catch {
-      // keep previous state
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    fetchData();
-  }, [fetchData]);
-
-  if (loading) {
+  if (isLoading) {
     return (
       <div className="rounded-xl border border-border bg-card p-5">
         <p className="text-sm text-muted-foreground text-center py-6">Memuat transaksi...</p>

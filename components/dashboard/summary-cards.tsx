@@ -1,11 +1,11 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useMemo } from "react";
 import { TrendingUp, TrendingDown, Wallet, ArrowUpRight, ArrowDownRight } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 import { formatRupiah } from "@/lib/store";
-import { cachedFetch } from "@/lib/fetch-cache";
+import { useSWR } from "@/lib/api";
 
 type DashboardData = {
   balance: number;
@@ -14,71 +14,49 @@ type DashboardData = {
 };
 
 export function SummaryCards() {
-  const [data, setData] = useState<DashboardData>({ balance: 0, monthlyIncome: 0, monthlyExpense: 0 });
-  const [loading, setLoading] = useState(false);
+  const { data, isLoading } = useSWR<DashboardData>("/api/dashboard");
 
-  const fetchData = useCallback(async () => {
-    setLoading(true);
-    try {
-      const res = await cachedFetch<DashboardData>("/api/dashboard");
-      if (!res) return;
-      setData({
-        balance: res.balance,
-        monthlyIncome: res.monthlyIncome,
-        monthlyExpense: res.monthlyExpense,
-      });
-    } catch {
-      // keep previous state
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    fetchData();
-  }, [fetchData]);
+  const d = data ?? { balance: 0, monthlyIncome: 0, monthlyExpense: 0 };
 
   const incomeTarget = useMemo(() => {
-    // Target: minimal 1jt, atau pengeluaran bulan ini sebagai baseline
-    return Math.max(data.monthlyIncome, data.monthlyExpense, 1_000_000);
-  }, [data.monthlyIncome, data.monthlyExpense]);
+    return Math.max(d.monthlyIncome, d.monthlyExpense, 1_000_000);
+  }, [d.monthlyIncome, d.monthlyExpense]);
 
-  const incomePercent = incomeTarget > 0 ? Math.min(Math.round((data.monthlyIncome / incomeTarget) * 100), 100) : 0;
+  const incomePercent = incomeTarget > 0 ? Math.min(Math.round((d.monthlyIncome / incomeTarget) * 100), 100) : 0;
 
   const cards = [
     {
       title: "Total Saldo",
-      amount: formatRupiah(Math.abs(data.balance)),
+      amount: formatRupiah(Math.abs(d.balance)),
       trend: {
-        value: loading ? "..." : (
-          data.balance > 0 ? "Aktif" :
-          data.balance < 0 ? "Defisit" :
+        value: isLoading ? "..." : (
+          d.balance > 0 ? "Aktif" :
+          d.balance < 0 ? "Defisit" :
           "0%"
         ),
-        direction: data.balance < 0 ? "down" as const : "up" as const,
+        direction: d.balance < 0 ? "down" as const : "up" as const,
         label: "Saldo keseluruhan"
       },
       icon: <Wallet className="h-5 w-5 text-primary" />,
       iconBg: "bg-primary/10",
       decorativeCircle: true,
-      className: data.balance < 0 ? "border-red-200 bg-red-50/30" : "",
+      className: d.balance < 0 ? "border-red-200 bg-red-50/30" : "",
     },
     {
       title: "Pemasukan Bulanan",
-      amount: formatRupiah(data.monthlyIncome),
+      amount: formatRupiah(d.monthlyIncome),
       icon: <TrendingUp className="h-5 w-5 text-secondary" />,
       iconBg: "bg-secondary/10",
-      progress: { current: data.monthlyIncome, target: incomeTarget, percentage: incomePercent },
+      progress: { current: d.monthlyIncome, target: incomeTarget, percentage: incomePercent },
       trend: { value: `${incomePercent}%`, direction: "up" as const, label: "dari target tercapai" },
     },
     {
       title: "Pengeluaran Bulanan",
-      amount: formatRupiah(data.monthlyExpense),
+      amount: formatRupiah(d.monthlyExpense),
       danger: true,
       icon: <TrendingDown className="h-5 w-5 text-destructive" />,
       iconBg: "bg-destructive/10",
-      trend: { value: loading ? "..." : `${data.monthlyExpense > 0 ? "Ada transaksi" : "0%"}`, direction: "up" as const, label: data.monthlyExpense > 0 ? "Perlu diawasi" : "Belum ada pengeluaran" },
+      trend: { value: isLoading ? "..." : `${d.monthlyExpense > 0 ? "Ada transaksi" : "0%"}`, direction: "up" as const, label: d.monthlyExpense > 0 ? "Perlu diawasi" : "Belum ada pengeluaran" },
     },
   ];
 

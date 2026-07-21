@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   Table,
   TableBody,
@@ -42,8 +42,8 @@ import {
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { useStore, formatRupiah, formatDateDisplay } from "@/lib/store";
-import { parseRupiah, apiFetch } from "@/lib/utils";
-import { cachedFetch, clearCache } from "@/lib/fetch-cache";
+import { apiFetch } from "@/lib/utils";
+import { useSWR, mutate } from "@/lib/api";
 import {
   Select,
   SelectContent,
@@ -124,9 +124,6 @@ function resolveCategoryStyle(name?: string | null): string {
 export default function TransactionsPage() {
   const activeUser = useStore((s) => s.activeUser);
 
-  const [transactions, setTransactions] = useState<ApiTransaction[]>([]);
-  const [total, setTotal] = useState(0);
-  const [loading, setLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -186,36 +183,15 @@ export default function TransactionsPage() {
     return params;
   };
 
-  async function fetchTransactions(bust = false) {
-    setLoading(true);
-    setError(null);
-    try {
-      const params = new URLSearchParams(buildQuery());
-      params.set("page", String(currentPage));
-      params.set("pageSize", String(ITEMS_PER_PAGE));
-      const data = await cachedFetch<ApiResponse>(
-        `/api/transactions?user=${encodeURIComponent(activeUser)}&${params.toString()}`,
-        { bust },
-      );
-      setTransactions(data.transactions ?? []);
-      setTotal(data.total ?? 0);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Terjadi kesalahan");
-      setTransactions([]);
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    fetchTransactions();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [categoryFilter, searchQuery, periodFilter, currentPage]);
+  const txKey = `/api/transactions?user=${encodeURIComponent(activeUser)}&${new URLSearchParams({ ...buildQuery(), page: String(currentPage), pageSize: String(ITEMS_PER_PAGE) }).toString()}`;
+  const { data, isLoading, error: swrError } = useSWR<ApiResponse>(txKey);
+  const transactions = data?.transactions ?? [];
+  const total = data?.total ?? 0;
+  const loading = isLoading;
 
   // Auto-refresh: ketika user balik ke tab ini
   useEffect(() => {
-    const onFocus = () => { clearCache(); fetchTransactions(true); };
+    const onFocus = () => { mutate(txKey); };
     window.addEventListener("focus", onFocus);
     return () => window.removeEventListener("focus", onFocus);
   }, []);
@@ -273,7 +249,7 @@ export default function TransactionsPage() {
         );
         setNewType("pengeluaran");
         setCurrentPage(1);
-        fetchTransactions(true);
+        mutate(txKey);
       })
       .catch((err) => {
         setError(err instanceof Error ? err.message : "Terjadi kesalahan");
@@ -337,7 +313,7 @@ export default function TransactionsPage() {
         return res.json();
       })
       .then(() => {
-        fetchTransactions(true);
+        mutate(txKey);
         setEditingTx(null);
       })
       .catch((err) => {
@@ -362,8 +338,7 @@ export default function TransactionsPage() {
           const text = await res.text();
           throw new Error(text || `Gagal menghapus transaksi: ${res.status}`);
         }
-        fetchTransactions(true);
-        clearCache();
+        mutate(txKey);
         setDeletingTx(null);
       })
       .catch((err) => {

@@ -3,6 +3,7 @@ import { Inter, Outfit } from "next/font/google";
 import "./globals.css";
 import { Sidebar } from "@/components/layout/sidebar";
 import { Header } from "@/components/layout/header";
+import { SWRProvider } from "@/components/swr-provider";
 
 const inter = Inter({
   variable: "--font-inter",
@@ -36,7 +37,7 @@ export default function RootLayout({
         <div className="flex flex-1">
           <Sidebar />
           <main className="flex-1 min-w-0 overflow-x-hidden lg:ml-64 px-4 md:px-6 lg:px-8 py-6 pb-32 lg:pb-6">
-            {children}
+            <SWRProvider>{children}</SWRProvider>
           </main>
         </div>
       </body>

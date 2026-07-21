@@ -80,7 +80,7 @@ export function formatDeadline(dateStr?: string | null): string {
 
 // ── API Fetch Helper ─────────────────────────────────────────────
 
-/** Use for POST/PUT/PATCH/DELETE. For GET with cache, use cachedFetch. */
+/** Use for POST/PUT/PATCH/DELETE (no client cache). */
 export async function apiFetch<T>(
   url: string,
   options?: RequestInit

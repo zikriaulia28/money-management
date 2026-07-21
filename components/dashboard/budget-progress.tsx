@@ -1,12 +1,12 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useMemo } from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import Link from "next/link";
-import { cachedFetch } from "@/lib/fetch-cache";
+import { useSWR } from "@/lib/api";
 import { formatRupiah } from "@/lib/store";
 
 // Format baru dari API budgets (setelah rewrite)
@@ -20,42 +20,17 @@ type ApiBudget = {
 };
 
 export function BudgetProgress() {
-  const [budgets, setBudgets] = useState<ApiBudget[]>([]);
-  const [loading, setLoading] = useState(false);
-
   function getMonthPeriod(): string {
     const now = new Date();
     return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
   }
 
-  const fetchData = useCallback(async () => {
-      setLoading(true);
-      try {
-        const period = getMonthPeriod();
-        const res = await cachedFetch<{ budgets: ApiBudget[] }>(
-          `/api/budgets?period=${encodeURIComponent(period)}`
-        );
-        setBudgets(res.budgets ?? []);
-      } catch {
-        // keep previous state
-      } finally {
-        setLoading(false);
-      }
-    }, []);
+  const { data, isLoading } = useSWR<{ budgets: ApiBudget[] }>(
+    `/api/budgets?period=${encodeURIComponent(getMonthPeriod())}`
+  );
+  const budgets = data?.budgets ?? [];
 
-    useEffect(() => {
-      // eslint-disable-next-line react-hooks/set-state-in-effect
-      fetchData();
-    }, [fetchData]);
-
-    // Auto-refresh ketika page mendapat fokus
-    useEffect(() => {
-      const onFocus = () => fetchData();
-      window.addEventListener("focus", onFocus);
-      return () => window.removeEventListener("focus", onFocus);
-    }, [fetchData]);
-
-  const topBudgets = useMemo(() => {
+    const topBudgets = useMemo(() => {
     return [...budgets]
       .sort((a, b) => {
         const pctA = a.amount > 0 ? a.spent / a.amount : 0;
@@ -71,7 +46,7 @@ export function BudgetProgress() {
         <CardTitle className="text-lg font-semibold">Anggaran Aktif</CardTitle>
       </CardHeader>
       <CardContent className="flex-1 space-y-5">
-        {loading ? (
+        {isLoading ? (
           <p className="text-sm text-muted-foreground text-center py-6">Memuat anggaran...</p>
         ) : topBudgets.length === 0 ? (
           <p className="text-sm text-muted-foreground text-center py-6">Belum ada anggaran</p>

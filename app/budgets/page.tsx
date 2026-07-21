@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -15,7 +15,7 @@ import {
 } from "@/components/ui/select";
 import { useStore } from "@/lib/store";
 import { formatRupiah } from "@/lib/store";
-import { cachedFetch, clearCache } from "@/lib/fetch-cache";
+import { useSWR, mutate } from "@/lib/api";
 import { CATEGORIES } from "@/lib/categories";
 import { formatMonthDisplay, getMonthLabel, parseRupiah } from "@/lib/utils";
 import { Plus, Sparkles, PiggyBank, Trash2, Loader2, Save } from "lucide-react";
@@ -88,12 +88,9 @@ const PRESETS: Record<string, { label: string; allocations: Record<string, numbe
 
 
 export default function BudgetsPage() {
-  const [budgets, setBudgets] = useState<Budget[]>([]);
-  const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const [period, setPeriod] = useState(getMonthLabel());
-  const [budgetMonths, setBudgetMonths] = useState<string[]>([]);
 
   // ── Dialog tambah manual ──
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -118,33 +115,16 @@ export default function BudgetsPage() {
   // ── Delete confirm ──
   const [deleteId, setDeleteId] = useState<string | null>(null);
 
-  const fetchBudgets = useCallback(async (bust = false) => {
-    setLoading(true);
-    setError(null);
-    try {
-      const data = await cachedFetch<{ budgets: Budget[] }>(
-        `/api/budgets?period=${encodeURIComponent(period)}`,
-        { bust }
-      );
-      setBudgets(data.budgets ?? []);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Gagal memuat budget");
-    } finally {
-      setLoading(false);
-    }
-  }, [period]);
+  const budgetKey = `/api/budgets?period=${encodeURIComponent(period)}`;
+  const { data, isLoading } = useSWR<{ budgets: Budget[] }>(budgetKey);
+  const budgets = data?.budgets ?? [];
+  const loading = isLoading;
 
-  useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    fetchBudgets();
-
-    const months: string[] = [];
-    for (let i = 0; i >= -5; i--) {
-      months.push(getMonthLabel(i));
-    }
-    setBudgetMonths(months);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [period, fetchBudgets]);
+  const months: string[] = [];
+  for (let i = 0; i >= -5; i--) {
+    months.push(getMonthLabel(i));
+  }
+  const budgetMonths = months;
 
   // ── Manual add ──
   async function handleAddBudget() {
@@ -172,7 +152,7 @@ export default function BudgetsPage() {
       setDialogOpen(false);
       setNewCategory(CATEGORIES.filter((c) => c.type === "expense")[0]?.value ?? "");
       setNewAmount("");
-      fetchBudgets(true);
+      mutate(budgetKey);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Terjadi kesalahan");
     }
@@ -184,8 +164,7 @@ export default function BudgetsPage() {
     try {
       const res = await fetch(`/api/budgets?id=${deleteId}`, { method: "DELETE" });
       if (!res.ok) throw new Error("Gagal menghapus budget");
-      setBudgets((prev) => prev.filter((b) => b.id !== deleteId));
-      clearCache(`GET:/api/budgets`);
+      mutate(budgetKey);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Terjadi kesalahan");
     } finally {
@@ -197,17 +176,17 @@ export default function BudgetsPage() {
   async function openWizard() {
     // Cek budget existing di bulan ini
     try {
-      const existing = await cachedFetch<{ budgets: Budget[] }>(
-        `/api/budgets?period=${encodeURIComponent(period)}`
-      );
+      const res = await fetch(`/api/budgets?period=${encodeURIComponent(period)}`);
+      const existing = res.ok ? await res.json() : { budgets: [] };
       setWizardHasExisting((existing.budgets ?? []).length > 0);
     } catch {
       setWizardHasExisting(false);
     }
     // Fetch active goals (not completed)
     try {
-      const res = await cachedFetch<{ goals: { id: string; name: string; target: number; collected: number; completed: boolean }[] }>("/api/goals");
-      const activeGoals = (res.goals ?? []).filter(g => !g.completed).map(g => ({
+      const res = await fetch("/api/goals");
+      const resJson = res.ok ? await res.json() : { goals: [] };
+      const activeGoals = (resJson.goals ?? []).filter((g: { completed: boolean }) => !g.completed).map((g: { id: string; name: string; target: number; collected: number }) => ({
         id: g.id,
         name: g.name,
         target: g.target,
@@ -216,7 +195,7 @@ export default function BudgetsPage() {
       setWizardActiveGoals(activeGoals);
       // Initialize allocations with 0% for each active goal
       const initialAllocs: Record<string, number> = {};
-      activeGoals.forEach(g => { initialAllocs[g.id] = 0; });
+      activeGoals.forEach((g: { id: string }) => { initialAllocs[g.id] = 0; });
       setWizardGoalAllocs(initialAllocs);
     } catch {
       setWizardActiveGoals([]);
@@ -278,11 +257,10 @@ export default function BudgetsPage() {
     setError(null);
     try {
       // Hapus budget existing di bulan ini dulu
-      const existing = await cachedFetch<{ budgets: Budget[] }>(
-        `/api/budgets?period=${encodeURIComponent(period)}`
-      );
+      const res = await fetch(`/api/budgets?period=${encodeURIComponent(period)}`);
+      const existing = res.ok ? await res.json() : { budgets: [] };
       await Promise.all(
-        (existing.budgets ?? []).map((b) =>
+        (existing.budgets ?? []).map((b: { id: string }) =>
           fetch(`/api/budgets?id=${b.id}`, { method: "DELETE" })
         )
       );
@@ -311,11 +289,11 @@ export default function BudgetsPage() {
       }
 
       // Clear cache goals juga agar halaman savings langsung terupdate
-      clearCache("GET:/api/goals");
+      mutate("/api/goals?withDeposits=true");
 
       setWizardOpen(false);
       setShowOverwriteConfirm(false);
-      fetchBudgets(true);
+      mutate(budgetKey);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Gagal membuat budget otomatis");
     } finally {

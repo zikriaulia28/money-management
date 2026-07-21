@@ -14,7 +14,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Plus, PiggyBank, Home, Plane, Target, Heart, Briefcase, Trash2, History as HistoryIcon } from "lucide-react";
 import { useStore, formatRupiah } from "@/lib/store";
-import { cachedFetch, clearCache } from "@/lib/fetch-cache";
+import { useSWR, mutate } from "@/lib/api";
 import { formatDeadline, MONTHS, getMonthIndex, parseRupiah } from "@/lib/utils";
 import {
   Select,
@@ -65,8 +65,6 @@ type ApiResponse = {
 export default function SavingsPage() {
   const activeUser = useStore((s) => s.activeUser);
 
-  const [goals, setGoals] = useState<ApiGoal[]>([]);
-  const [loading, setLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -87,6 +85,10 @@ export default function SavingsPage() {
   const [historyTarget, setHistoryTarget] = useState<{ id: string; name: string } | null>(null);
   const [historyData, setHistoryData] = useState<{ amount: number; type: string; date: string; note?: string | null }[]>([]);
   const [historyLoading, setHistoryLoading] = useState(false);
+
+  const { data, isLoading } = useSWR<ApiResponse>('/api/goals?withDeposits=true');
+  const goals = data?.goals ?? [];
+  const loading = isLoading;
 
   async function openHistory(goalId: string, name: string) {
     setHistoryTarget({ id: goalId, name });
@@ -116,8 +118,7 @@ export default function SavingsPage() {
         const text = await res.text();
         throw new Error(text || `Gagal menandai selesai: ${res.status}`);
       }
-      clearCache();
-      fetchGoals(true);
+      mutate('/api/goals?withDeposits=true');
     } catch (err) {
       setError(err instanceof Error ? err.message : "Terjadi kesalahan");
     } finally {
@@ -136,39 +137,14 @@ export default function SavingsPage() {
         const text = await res.text();
         throw new Error(text || `Gagal hapus target: ${res.status}`);
       }
-      clearCache();
       setDeleteTarget(null);
-      fetchGoals();
+      mutate('/api/goals?withDeposits=true');
     } catch (err) {
       setError(err instanceof Error ? err.message : "Terjadi kesalahan");
     } finally {
       setSubmitting(false);
     }
   }
-
-  async function fetchGoals(bust = false) {
-    setLoading(true);
-    setError(null);
-    try {
-      const data = await cachedFetch<ApiResponse>('/api/goals?withDeposits=true', { bust });
-      setGoals(data.goals ?? []);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Terjadi kesalahan");
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  useEffect(() => {
-    fetchGoals();
-  }, []);
-
-  // Auto-refresh: ketika user balik ke tab ini dari halaman lain
-  useEffect(() => {
-    const onFocus = () => fetchGoals(true);
-    window.addEventListener("focus", onFocus);
-    return () => window.removeEventListener("focus", onFocus);
-  }, []);
 
   async function handleAddGoal() {
     if (!newName.trim() || !newTarget.trim()) return;
@@ -201,7 +177,7 @@ export default function SavingsPage() {
       setDialogOpen(false);
       setNewName("");
       setNewTarget("");
-      fetchGoals(true);
+      mutate('/api/goals?withDeposits=true');
     } catch (err) {
       setError(err instanceof Error ? err.message : "Terjadi kesalahan");
     } finally {
@@ -227,8 +203,7 @@ export default function SavingsPage() {
       setDepositDialogOpen(false);
       setDepositAmount("");
       setDepositGoalId(null);
-      clearCache();
-      fetchGoals(true);
+      mutate('/api/goals?withDeposits=true');
     } catch (err) {
       setError(err instanceof Error ? err.message : "Terjadi kesalahan");
     } finally {
@@ -255,7 +230,7 @@ export default function SavingsPage() {
       {error ? (
         <div className="p-4 text-sm text-red-600 dark:text-red-400">
           {error}
-          <button type="button" className="ml-3 underline" onClick={() => fetchGoals(true)}>Coba lagi</button>
+          <button type="button" className="ml-3 underline" onClick={() => mutate('/api/goals?withDeposits=true')}>Coba lagi</button>
         </div>
       ) : null}
 

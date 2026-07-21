@@ -15,7 +15,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { cachedFetch } from "@/lib/fetch-cache";
+import { useSWR } from "@/lib/api";
 import { formatRupiah, formatDateDisplay } from "@/lib/store";
 import { CATEGORY_COLOR_MAP } from "@/lib/categories";
 import {
@@ -108,37 +108,12 @@ function CustomTooltip({ active, payload, label }: { active?: boolean; payload?:
 export default function ReportsPage() {
   const monthOptions = useMemo(() => getMonthOptions(), []);
   const [selectedMonth, setSelectedMonth] = useState(monthOptions[0]?.value || "");
-  const [data, setData] = useState<ReportData | null>(null);
-  const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const fetchReport = useCallback(async (bust = false) => {
-    if (!selectedMonth) return;
-    setLoading(true);
-    setError(null);
-    try {
-      const result = await cachedFetch<ReportData>(
-        `/api/reports?month=${selectedMonth}`,
-        { bust },
-      );
-      setData(result);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Terjadi kesalahan");
-      setData(null);
-    } finally {
-      setLoading(false);
-    }
-  }, [selectedMonth]);
-
-  useEffect(() => {
-    fetchReport();
-  }, [fetchReport]);
-
-  useEffect(() => {
-    const onFocus = () => fetchReport();
-    window.addEventListener("focus", onFocus);
-    return () => window.removeEventListener("focus", onFocus);
-  }, [fetchReport]);
+  const { data, isLoading } = useSWR<ReportData>(
+    selectedMonth ? `/api/reports?month=${selectedMonth}` : null
+  );
+  const loading = isLoading;
 
   function goMonth(offset: number) {
     const idx = monthOptions.findIndex((m) => m.value === selectedMonth);
